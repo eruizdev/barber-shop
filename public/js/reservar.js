@@ -43,14 +43,31 @@
   }
 
   function currentService() { return (cfg.services || []).find((s) => s.id === $('service').value) || null; }
+  const need = () => (currentService() || { slots: 1 }).slots;
+  const hoursLabel = (n) => (n === 2 ? '2 horas' : '1 hora');
 
-  function updateSummary() {
-    if (!selDate || !selTime) return;
+  // Al cambiar de servicio cambia la duración: se recarga el calendario y se vuelve a elegir hora.
+  async function onServiceChange() {
     const s = currentService();
     const canAddon = Boolean(s && cfg.addon && !s.noAddon);
     $('addonRow').hidden = !canAddon;
     if (!canAddon) $('addon').checked = false;
-    const parts = ['Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(selTime)), ' (1 hora)'];
+    $('serviceHint').hidden = !(s && s.slots === 2);
+    $('serviceHint').textContent = 'Este servicio dura más de 1 h 10 min: se reservan 2 horas seguidas.';
+    if (!s) { $('stepDay').hidden = true; $('stepTime').hidden = true; $('stepForm').hidden = true; return; }
+    try { cal = await api(`/api/calendar?service=${encodeURIComponent(s.id)}`); } catch (e) { showError(e.message); return; }
+    $('stepDay').hidden = false;
+    selTime = null;
+    $('stepForm').hidden = true;
+    renderCalendar();
+    if (selDate && cal.days.some((d) => d.date === selDate && d.open)) await pickDay(selDate, { scroll: false });
+    else { selDate = null; $('stepTime').hidden = true; renderCalendar(); }
+  }
+
+  function updateSummary() {
+    if (!selDate || !selTime) return;
+    const s = currentService();
+    const parts = ['Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(selTime)), ` (${hoursLabel(need())})`];
     if (s) {
       const addon = $('addon').checked;
       const total = s.price + (addon ? cfg.addon.price : 0);
@@ -59,7 +76,7 @@
     }
     $('summary').replaceChildren(...parts);
   }
-  $('service').addEventListener('change', updateSummary);
+  $('service').addEventListener('change', onServiceChange);
   $('addon').addEventListener('change', updateSummary);
 
   function renderCalendar() {
@@ -102,7 +119,7 @@
     }
   }
 
-  async function pickDay(date) {
+  async function pickDay(date, { scroll = true } = {}) {
     selDate = date; selTime = null;
     $('stepForm').hidden = true;
     renderCalendar();
@@ -112,12 +129,12 @@
     box.replaceChildren();
     $('slotsEmpty').hidden = true;
     try {
-      const data = await api(`/api/slots?date=${date}`);
+      const data = await api(`/api/slots?date=${date}&service=${encodeURIComponent($('service').value)}`);
       renderSlots(data.slots);
     } catch (e) {
       showError(e.message);
     }
-    $('stepTime').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scroll) $('stepTime').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderSlots(slots) {
@@ -126,6 +143,7 @@
       type: 'button',
       class: 'chip' + (s.time === selTime ? ' is-selected' : ''),
       disabled: !s.available,
+      title: s.reason === 'short' ? 'No alcanza: este servicio dura 2 horas' : '',
       onclick: () => pickTime(s.time, slots),
     }, time12(s.time))));
     $('slotsEmpty').hidden = slots.some((s) => s.available);
@@ -164,7 +182,10 @@
       if (e.status === 409) { // la hora se ocupó: refrescar
         selTime = null;
         $('stepForm').hidden = true;
-        try { cal = await api('/api/calendar'); renderCalendar(); await pickDay(selDate); } catch (_) { /* nada */ }
+        try {
+          cal = await api(`/api/calendar?service=${encodeURIComponent($('service').value)}`);
+          renderCalendar(); await pickDay(selDate);
+        } catch (_) { /* nada */ }
         showError(e.message);
       }
     } finally {

@@ -61,7 +61,7 @@ function dayInfo(dateStr) {
   for (const [a, b] of ranges) {
     for (let t = a; t + SLOT_MIN <= b; t += SLOT_MIN) starts.push(toTime(t));
   }
-  return { date: dateStr, dow, holiday, open: starts.length > 0, starts };
+  return { date: dateStr, dow, holiday, open: starts.length > 0, starts, ranges };
 }
 
 /**
@@ -85,24 +85,34 @@ function bookingWindow(todayStr, anchorStr, nowMinutes = 0, openTime = '08:00') 
   };
 }
 
+/** Horas que ocupa un servicio: si dura más de 1 h 10 min, ocupa 2 horas. */
+const slotsForMinutes = (minutes) => (minutes > 70 ? 2 : 1);
+
 /**
- * Estado de cada hora de un día.
- * busyTimes: horas de citas activas ('HH:MM'); blocks: [{time|null}].
+ * Estado de cada hora de inicio de un día.
+ * busyTimes: citas activas, como 'HH:MM' (1 hora) o { time, slots } (slots = horas que ocupa).
+ * blocks: [{time|null}]. need: horas seguidas que necesita la nueva cita (1 o 2).
+ * Una hora solo está libre si las `need` horas caben dentro del mismo tramo del horario
+ * (ej. lunes 10:00 no sirve para 2 horas porque a las 11:00 se cierra).
  */
-function computeSlots(dateStr, { busyTimes = [], blocks = [], nowMs = Date.now(), minLeadMin = 60 } = {}) {
+function computeSlots(dateStr, { busyTimes = [], blocks = [], nowMs = Date.now(), minLeadMin = 60, need = 1 } = {}) {
   const info = dayInfo(dateStr);
   const wholeDayBlocked = blocks.some((b) => !b.time);
-  const blocked = blocks.filter((b) => b.time).map((b) => toMin(b.time));
-  const busy = busyTimes.map(toMin);
+  const interval = (time, slots = 1) => ({ s: toMin(time), e: toMin(time) + slots * SLOT_MIN });
+  const blocked = blocks.filter((b) => b.time).map((b) => interval(b.time));
+  const busy = busyTimes.map((b) => (typeof b === 'string' ? interval(b) : interval(b.time, b.slots || 1)));
   const limit = nowMs + minLeadMin * 60000;
 
   return info.starts.map((time) => {
     const s = toMin(time);
+    const e = s + need * SLOT_MIN;
+    const overlaps = (x) => s < x.e && x.s < e;
     let reason = null;
     if (wholeDayBlocked) reason = 'blocked';
     else if (startMs(dateStr, time) < limit) reason = 'past';
-    else if (busy.some((b) => Math.abs(b - s) < SLOT_MIN)) reason = 'taken';
-    else if (blocked.some((b) => Math.abs(b - s) < SLOT_MIN)) reason = 'blocked';
+    else if (!info.ranges.some(([a, b]) => s >= a && e <= b)) reason = 'short'; // no alcanza antes del cierre
+    else if (busy.some(overlaps)) reason = 'taken';
+    else if (blocked.some(overlaps)) reason = 'blocked';
     return { time, available: !reason, reason };
   });
 }
@@ -123,6 +133,6 @@ module.exports = {
   SLOT_MIN, OFFSET_MS,
   isDateStr, isTimeStr, toMin, toTime,
   nowParts, addDays, daysBetween, dayOfWeek, startMs,
-  dayInfo, bookingWindow, computeSlots,
+  dayInfo, bookingWindow, computeSlots, slotsForMinutes,
   formatDateEs, format12,
 };

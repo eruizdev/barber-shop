@@ -80,14 +80,18 @@ function createApp() {
     });
   });
 
+  // Horas que necesita la reserva: ?service=<id> o ?slots=2 (página de la cita)
+  const needFrom = (q) => (q.service ? services.slotsFor(String(q.service)) : (Number(q.slots) === 2 ? 2 : 1));
+
   app.get('/api/calendar', (req, res) => {
+    const need = needFrom(req.query);
     const now = S.nowParts();
     const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
     const days = [];
     for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) {
       const info = S.dayInfo(d);
       const slots = S.computeSlots(d, {
-        busyTimes: repo.activeTimes(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin,
+        busyTimes: repo.activeTimes(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin, need,
       });
       days.push({
         date: d, dow: info.dow, open: info.open, holiday: info.holiday,
@@ -117,6 +121,7 @@ function createApp() {
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
         busyTimes: repo.activeTimes(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
+        need: needFrom(req.query),
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
     } catch (e) { next(e); }
@@ -130,8 +135,10 @@ function createApp() {
   const book = repo.db.transaction((data) => {
     const slot = S.computeSlots(data.date, {
       busyTimes: repo.activeTimes(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
+      need: data.slots,
     }).find((s) => s.time === data.time);
     if (!slot) throw bad('Esa hora no hace parte del horario');
+    if (slot.reason === 'short') throw new HttpError(409, 'Este servicio dura 2 horas y no alcanza a esa hora. Elige otra.');
     if (!slot.available) throw new HttpError(409, 'Esa hora ya no está disponible. Elige otra.');
     if (repo.countFuturePhone(data.phone, S.nowParts().date) >= cfg.maxActivePerPhone) {
       throw new HttpError(409, `Ya tienes ${cfg.maxActivePerPhone} citas activas con este número.`);
@@ -150,11 +157,11 @@ function createApp() {
       if (!service) throw bad('Elige el tipo de servicio');
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
-      const appt = book({ name, phone, service, date: b.date, time: b.time });
+      const appt = book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
       // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
       const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
-        code: appt.code, name: appt.name, phone: appt.phone, service: appt.service, date: appt.date, time: appt.time,
+        code: appt.code, name: appt.name, phone: appt.phone, service: appt.service, slots: appt.slots, date: appt.date, time: appt.time,
         manageUrl: notify.manageUrl(appt, req), whatsappSent,
       });
     } catch (e) {
@@ -206,9 +213,11 @@ function createApp() {
       const date = String(req.query.date || '');
       if (!S.isDateStr(date)) throw bad('Fecha no válida');
       const ex = Number(req.query.exclude) || 0;
+      const editing = ex ? repo.getAppointment(ex) : null;
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
         busyTimes: repo.activeTimes(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
+        need: editing ? editing.slots : 1,
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
     } catch (e) { next(e); }
@@ -263,7 +272,7 @@ function createApp() {
         const becomesActive = next.status !== 'cancelled';
         const moved = next.date !== before.date || next.time !== before.time;
         const reactivated = before.status === 'cancelled' && becomesActive;
-        if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id)) {
+        if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id, before.slots)) {
           throw new HttpError(409, 'Ya hay una cita en ese horario');
         }
         const after = repo.updateAppointment(id, { ...f, resetReminder: moved });

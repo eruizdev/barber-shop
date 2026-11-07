@@ -22,7 +22,7 @@ const canModify = (a, nowMs = Date.now()) =>
   a.status === 'confirmed' && S.startMs(a.date, a.time) - nowMs >= cfg.minLeadMin * 60000;
 
 const publicView = (a) => ({
-  code: a.code, name: a.name, date: a.date, time: a.time, service: a.service, note: a.note,
+  code: a.code, name: a.name, date: a.date, time: a.time, service: a.service, slots: a.slots, note: a.note,
   status: a.status, canModify: canModify(a),
 });
 
@@ -44,6 +44,7 @@ function slotsFor(date, appt) {
     busyTimes: repo.activeTimes(date, appt.id), // su propia hora no cuenta como ocupada
     blocks: repo.blocksFor(date),
     minLeadMin: cfg.minLeadMin,
+    need: appt.slots || 1,
   });
 }
 

@@ -96,7 +96,7 @@
     const box = $('days');
     box.replaceChildren(h('p', { class: 'empty' }, 'Cargando…'));
     try {
-      const cal = await api('/api/calendar');
+      const cal = await api(`/api/calendar?slots=${appt.slots || 1}`);
       const days = cal.days.filter((d) => d.open && (d.free > 0 || d.date === appt.date));
       box.replaceChildren(...days.map((d) => h('button', {
         type: 'button', class: 'chip', 'data-date': d.date,

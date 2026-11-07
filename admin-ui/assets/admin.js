@@ -133,7 +133,7 @@
     actions.push(btn('Eliminar', () => remove(a), 'danger'));
 
     return h('div', { class: `appt st-${a.status}` },
-      h('div', { class: 'time' }, time12(a.time)),
+      h('div', { class: 'time' }, time12(a.time), a.slots === 2 ? h('small', {}, '2 horas') : null),
       h('div', {},
         h('div', { class: 'name' }, a.name, h('span', { class: `badge ${a.status}` }, STATUS[a.status])),
         h('div', { class: 'meta' },

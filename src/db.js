@@ -79,6 +79,10 @@ db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_token ON appointments(manage_
 if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'service')) {
   db.exec("ALTER TABLE appointments ADD COLUMN service TEXT NOT NULL DEFAULT ''");
 }
+// Migración: horas que ocupa la cita (2 si el servicio dura más de 1 h 10 min)
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'slots')) {
+  db.exec('ALTER TABLE appointments ADD COLUMN slots INTEGER NOT NULL DEFAULT 1');
+}
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode() {
@@ -91,11 +95,11 @@ function newCode() {
 }
 
 const stmt = {
-  activeTimes: db.prepare(`SELECT time FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
+  activeTimes: db.prepare(`SELECT time, slots FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
   blocksFor: db.prepare('SELECT id, date, time, reason FROM blocks WHERE date = ?'),
   countFuturePhone: db.prepare(`SELECT COUNT(*) AS c FROM appointments WHERE phone = ? AND status = 'confirmed' AND date >= ?`),
-  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, service, note, date, time, status, source)
-                      VALUES (@code, @token, @name, @phone, @service, @note, @date, @time, @status, @source)`),
+  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, service, slots, note, date, time, status, source)
+                      VALUES (@code, @token, @name, @phone, @service, @slots, @note, @date, @time, @status, @source)`),
   get: db.prepare('SELECT * FROM appointments WHERE id = ?'),
   getByToken: db.prepare('SELECT * FROM appointments WHERE manage_token = ?'),
   del: db.prepare('DELETE FROM appointments WHERE id = ?'),
@@ -110,13 +114,19 @@ const stmt = {
       ORDER BY date, time`),
 };
 
-const activeTimes = (date, excludeId = 0) => stmt.activeTimes.all({ date, ex: excludeId }).map((r) => r.time);
+/** Citas activas del día: [{ time, slots }] */
+const activeTimes = (date, excludeId = 0) =>
+  stmt.activeTimes.all({ date, ex: excludeId }).map((r) => ({ time: r.time, slots: Number(r.slots) || 1 }));
 const blocksFor = (date) => stmt.blocksFor.all(date);
 
-/** ¿Choca con otra cita activa? (cada cita ocupa 1 hora) */
-function hasConflict(date, time, excludeId = 0) {
+/** ¿Choca con otra cita activa? (cada cita ocupa `slots` horas) */
+function hasConflict(date, time, excludeId = 0, slots = 1) {
   const s = toMin(time);
-  return activeTimes(date, excludeId).some((t) => Math.abs(toMin(t) - s) < SLOT_MIN);
+  const e = s + slots * SLOT_MIN;
+  return activeTimes(date, excludeId).some((a) => {
+    const as = toMin(a.time);
+    return s < as + a.slots * SLOT_MIN && as < e;
+  });
 }
 
 function insertAppointment(data) {
@@ -127,6 +137,7 @@ function insertAppointment(data) {
     name: data.name,
     phone: data.phone,
     service: data.service || '',
+    slots: data.slots === 2 ? 2 : 1,
     note: data.note || '',
     date: data.date,
     time: data.time,

@@ -74,6 +74,28 @@ assert.strictEqual(slots.find((s) => s.time === '09:00').available, false);
 assert.strictEqual(slots.find((s) => s.time === '10:00').available, false);
 assert.strictEqual(slots.find((s) => s.time === '08:00').available, true);
 
+// Servicios de 2 horas (más de 1 h 10 min)
+assert.strictEqual(S.slotsForMinutes(45), 1);
+assert.strictEqual(S.slotsForMinutes(70), 1);
+assert.strictEqual(S.slotsForMinutes(71), 2);
+assert.strictEqual(S.slotsForMinutes(90), 2);
+let two = S.computeSlots('2026-11-10', { nowMs: now, need: 2 }); // martes: 8-11 y 14-20
+const st = (arr, t) => arr.find((x) => x.time === t);
+assert.strictEqual(st(two, '08:00').available, true);
+assert.strictEqual(st(two, '09:00').available, true);
+assert.strictEqual(st(two, '10:00').reason, 'short'); // cierra a las 11
+assert.strictEqual(st(two, '18:00').available, true);
+assert.strictEqual(st(two, '19:00').reason, 'short'); // cierra a las 20
+// Una cita de 2 horas a las 15:00 ocupa 15 y 16
+let one = S.computeSlots('2026-11-10', { nowMs: now, busyTimes: [{ time: '15:00', slots: 2 }] });
+assert.strictEqual(st(one, '15:00').reason, 'taken');
+assert.strictEqual(st(one, '16:00').reason, 'taken');
+assert.strictEqual(st(one, '17:00').available, true);
+// Para 2 horas, las 14:00 chocan con la de las 15:00
+two = S.computeSlots('2026-11-10', { nowMs: now, need: 2, busyTimes: ['15:00'] });
+assert.strictEqual(st(two, '14:00').reason, 'taken');
+assert.strictEqual(st(two, '16:00').available, true);
+
 slots = S.computeSlots('2026-11-10', { nowMs: now, blocks: [{ time: null }] });
 assert.ok(slots.every((s) => !s.available));
 

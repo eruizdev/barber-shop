@@ -168,6 +168,7 @@
 .summary b { color: var(--gold); font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .form-grid .full { grid-column: 1 / -1; }
+.hint { color: var(--gold); font-size: 15px; margin-top: 4px; }
 .check { display: flex; align-items: center; gap: 10px; margin: -4px 0 16px; cursor: pointer; font-size: 16px; }
 .check input { width: 20px; height: 20px; accent-color: var(--gold); }
 

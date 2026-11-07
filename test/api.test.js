@@ -212,6 +212,26 @@ const server = createApp().listen(0, async () => {
     r = await call('DELETE', `/api/admin/appointments/${manualId}`, null, { auth: true });
     assert.strictEqual(r.status, 200);
 
+    // Servicio de 2 horas (VIP 1, 1 h 30): ocupa la hora elegida y la siguiente
+    r = await call('GET', '/api/config');
+    assert.strictEqual(r.json.services.find((x) => x.id === 'vip-1').slots, 2);
+    assert.strictEqual(r.json.services.find((x) => x.id === 'corte-premium').slots, 1);
+    let vipDay = null; let vipTime = null;
+    for (const d of cal.days.filter((x) => x.open)) {
+      const sl = (await call('GET', `/api/slots?date=${d.date}&service=vip-1`)).json.slots;
+      const ok = sl.find((x) => x.available);
+      if (ok) { vipDay = d.date; vipTime = ok.time; break; }
+    }
+    if (vipDay) {
+      r = await call('POST', '/api/appointments', { name: 'Cliente Vip', phone: '3187776655', date: vipDay, time: vipTime, service: 'vip-1' });
+      assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+      assert.strictEqual(r.json.slots, 2);
+      const next = S.toTime(S.toMin(vipTime) + 60);
+      const after = (await call('GET', `/api/slots?date=${vipDay}`)).json.slots;
+      assert.strictEqual(after.find((x) => x.time === vipTime).available, false);
+      assert.strictEqual(after.find((x) => x.time === next).available, false, 'la segunda hora también queda ocupada');
+    }
+
     // Limpieza: se borran las citas de hace más de 3 días; las de hace 3 días o menos se conservan
     const repo = require('../src/db');
     const old4 = repo.insertAppointment({ name: 'Vieja', phone: '573000000004', date: S.addDays(today, -4), time: '10:00', service: 'x' });
