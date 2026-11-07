@@ -9,6 +9,8 @@ const cfg = require('./src/config');
 const repo = require('./src/db');
 const auth = require('./src/auth');
 const reminders = require('./src/reminders');
+const notify = require('./src/notify');
+const { citaRoutes } = require('./src/cita-routes');
 const S = require('./src/schedule');
 
 class HttpError extends Error {
@@ -132,7 +134,7 @@ function createApp() {
     return repo.insertAppointment({ ...data, source: 'web' });
   });
 
-  app.post('/api/appointments', bookLimiter, (req, res, next) => {
+  app.post('/api/appointments', bookLimiter, async (req, res, next) => {
     try {
       const b = req.body || {};
       const name = cleanText(b.name, 60);
@@ -143,8 +145,11 @@ function createApp() {
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
       const appt = book({ name, phone, note, date: b.date, time: b.time });
+      // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
+      const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
-        code: appt.code, name: appt.name, date: appt.date, time: appt.time,
+        code: appt.code, name: appt.name, phone: appt.phone, date: appt.date, time: appt.time,
+        manageUrl: notify.manageUrl(appt, req), whatsappSent,
       });
     } catch (e) {
       if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -318,6 +323,9 @@ function createApp() {
 
   app.use('/api/admin', admin);
 
+  // ---------- Cliente: gestionar su cita con el link privado ----------
+  app.use('/api/cita', citaRoutes());
+
   // ---------- Páginas ----------
   // El panel no se enlaza desde ningún lado: solo se entra escribiendo /admin.
   const adminHtml = path.join(__dirname, 'admin-ui', 'views', 'admin.html');
@@ -326,6 +334,13 @@ function createApp() {
     res.sendFile(adminHtml);
   });
   app.use('/admin/assets', express.static(path.join(__dirname, 'admin-ui', 'assets'), { index: false, maxAge: 0 }));
+
+  // Página del link que recibe el cliente por WhatsApp
+  const citaHtml = path.join(__dirname, 'public', 'cita.html');
+  app.get('/cita/:token', (req, res) => {
+    res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+    res.sendFile(citaHtml);
+  });
 
   app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '5m' }));
 

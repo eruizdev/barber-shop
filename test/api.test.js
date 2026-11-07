@@ -13,6 +13,7 @@ process.env.ADMIN1_PASS = 'TestPass123!';
 process.env.ADMIN2_USER = 'ruiz';
 process.env.ADMIN2_PASS = 'ruiz';
 process.env.MIN_LEAD_MINUTES = '0';
+process.env.WHATSAPP_ENABLED = 'false'; // nunca enviar mensajes reales en pruebas
 
 const S = require('../src/schedule');
 // Ancla: lunes de esta semana (hora Colombia) => ventana = esta semana + la siguiente
@@ -135,6 +136,9 @@ const server = createApp().listen(0, async () => {
     // Reactivar choca si alguien tomó la hora
     r = await call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: day.date, time: t1 });
     assert.strictEqual(r.status, 201);
+    assert.strictEqual(r.json.whatsappSent, false);
+    assert.match(r.json.manageUrl, /\/cita\/[\w-]{32}$/);
+    const token = r.json.manageUrl.split('/cita/')[1];
     r = await call('PATCH', `/api/admin/appointments/${manualId}`, { status: 'confirmed' }, { auth: true });
     assert.strictEqual(r.status, 409);
 
@@ -158,6 +162,41 @@ const server = createApp().listen(0, async () => {
       r = await call('DELETE', `/api/admin/blocks/${blkId}`, null, { auth: true });
       assert.strictEqual(r.status, 200);
     }
+
+    // Cliente: gestionar su cita con el link privado
+    assert.strictEqual((await call('GET', '/api/cita/token-que-no-existe')).status, 404);
+    r = await call('GET', `/api/cita/${token}`);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.json.appointment.time, t1);
+    assert.strictEqual(r.json.appointment.canModify, true);
+    assert.strictEqual(r.json.appointment.phone, undefined, 'no expone el celular');
+    r = await call('GET', `/api/cita/${token}/slots?date=${day.date}`);
+    assert.strictEqual(r.json.current, t1);
+    assert.strictEqual(r.json.slots.find((s) => s.time === t1).available, true, 'su propia hora no cuenta como ocupada');
+    r = await call('POST', `/api/cita/${token}/reschedule`, { date: day.date, time: t2 }); // ocupada por Carlos
+    assert.strictEqual(r.status, 409);
+    r = await call('POST', `/api/cita/${token}/reschedule`, { date: S.addDays(cal.window.end, 1), time: t1 });
+    assert.strictEqual(r.status, 400);
+    const t3 = (await call('GET', `/api/cita/${token}/slots?date=${day.date}`)).json.slots
+      .find((s) => s.available && s.time !== t1);
+    if (t3) {
+      r = await call('POST', `/api/cita/${token}/reschedule`, { date: day.date, time: t3.time });
+      assert.strictEqual(r.status, 200, JSON.stringify(r.json));
+      assert.strictEqual(r.json.appointment.time, t3.time);
+      assert.strictEqual(r.json.whatsappSent, false);
+      r = await call('GET', `/api/slots?date=${day.date}`);
+      assert.strictEqual(r.json.slots.find((s) => s.time === t3.time).available, false);
+    }
+    const pg = await fetch(`${base}/cita/${token}`);
+    assert.strictEqual(pg.status, 200);
+    assert.match(pg.headers.get('x-robots-tag') || '', /noindex/);
+    assert.ok((await pg.text()).includes('Mi cita'));
+    r = await call('POST', `/api/cita/${token}/cancel`);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.json.appointment.status, 'cancelled');
+    assert.strictEqual(r.json.appointment.canModify, false);
+    assert.strictEqual((await call('POST', `/api/cita/${token}/cancel`)).status, 409);
+    assert.strictEqual((await call('POST', `/api/cita/${token}/reschedule`, { date: day.date, time: t1 })).status, 409);
 
     // Eliminar
     r = await call('DELETE', `/api/admin/appointments/${manualId}`, null, { auth: true });

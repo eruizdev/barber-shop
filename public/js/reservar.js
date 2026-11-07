@@ -143,10 +143,15 @@
     $('flow').hidden = true;
     $('notice').hidden = true;
     $('doneWhen').textContent = `${longDate(r.date)} a las ${time12(r.time)}`;
-    $('doneCode').textContent = r.code;
-    if (cfg.whatsapp) {
-      const msg = encodeURIComponent(`Hola, soy ${r.name}. Mi cita en Sebas Barber es el ${longDate(r.date)} a las ${time12(r.time)}. Código ${r.code}.`);
-      $('doneActions').prepend(h('a', { class: 'btn', href: `https://wa.me/${cfg.whatsapp}?text=${msg}`, rel: 'noopener' }, 'Escribir por WhatsApp'));
+    if (r.whatsappSent) {
+      $('doneMsg').replaceChildren(
+        'Te enviamos la confirmación a tu WhatsApp ', h('b', {}, SB.phonePretty(r.phone)),
+        ' con el link para ver, cambiar o cancelar tu cita.'
+      );
+    } else {
+      // Sin WhatsApp (no configurado o falló): el link se muestra aquí
+      $('doneMsg').textContent = 'Guarda este link: desde ahí puedes ver, cambiar o cancelar tu cita.';
+      $('doneActions').prepend(h('a', { class: 'btn', href: r.manageUrl }, 'Ver mi cita'));
     }
     $('done').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
