@@ -65,6 +65,21 @@ CREATE TABLE IF NOT EXISTS audit (
 );
 `);
 
+// Token privado por cita: va en el link que recibe el cliente (/cita/<token>)
+// para ver, reprogramar o cancelar su cita sin crear cuenta.
+const newToken = () => crypto.randomBytes(24).toString('base64url');
+
+// Migración: bases creadas antes de existir manage_token
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'manage_token')) {
+  db.exec('ALTER TABLE appointments ADD COLUMN manage_token TEXT');
+}
+{
+  const missing = db.prepare('SELECT id FROM appointments WHERE manage_token IS NULL').all();
+  const set = db.prepare('UPDATE appointments SET manage_token = ? WHERE id = ?');
+  for (const { id } of missing) set.run(newToken(), id);
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_token ON appointments(manage_token)');
+
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode() {
   for (;;) {
@@ -79,9 +94,10 @@ const stmt = {
   activeTimes: db.prepare(`SELECT time FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
   blocksFor: db.prepare('SELECT id, date, time, reason FROM blocks WHERE date = ?'),
   countFuturePhone: db.prepare(`SELECT COUNT(*) AS c FROM appointments WHERE phone = ? AND status = 'confirmed' AND date >= ?`),
-  insert: db.prepare(`INSERT INTO appointments (code, name, phone, note, date, time, status, source)
-                      VALUES (@code, @name, @phone, @note, @date, @time, @status, @source)`),
+  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, note, date, time, status, source)
+                      VALUES (@code, @token, @name, @phone, @note, @date, @time, @status, @source)`),
   get: db.prepare('SELECT * FROM appointments WHERE id = ?'),
+  getByToken: db.prepare('SELECT * FROM appointments WHERE manage_token = ?'),
   del: db.prepare('DELETE FROM appointments WHERE id = ?'),
   addBlock: db.prepare('INSERT INTO blocks (date, time, reason) VALUES (?, ?, ?)'),
   getBlock: db.prepare('SELECT * FROM blocks WHERE id = ?'),
@@ -107,6 +123,7 @@ function insertAppointment(data) {
   const code = newCode();
   const info = stmt.insert.run({
     code,
+    token: newToken(),
     name: data.name,
     phone: data.phone,
     note: data.note || '',
@@ -159,6 +176,7 @@ module.exports = {
   countFuturePhone: (phone, today) => stmt.countFuturePhone.get(phone, today).c,
   insertAppointment, updateAppointment, listAppointments,
   getAppointment: (id) => stmt.get.get(id),
+  getAppointmentByToken: (token) => (typeof token === 'string' && token ? stmt.getByToken.get(token) : undefined),
   deleteAppointment: (id) => stmt.del.run(id).changes,
   addBlock: (date, time, reason) => stmt.getBlock.get(stmt.addBlock.run(date, time, reason).lastInsertRowid),
   getBlock: (id) => stmt.getBlock.get(id),
