@@ -47,15 +47,54 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 - **Actividad**: quién hizo qué y cuándo.
 - Como admin puedes agendar fuera del calendario de 2 semanas y fuera del horario normal; el sistema solo impide que dos citas se pisen.
 
-## Recordatorios por WhatsApp (opcional, desactivado)
+## El cliente gestiona su cita (link por WhatsApp)
 
-1. En Meta Business: WABA del dueño, número verificado, usuario del sistema con token permanente.
-2. Crea y aprueba una plantilla **Utilidad**, idioma `es`, llamada `recordatorio_cita`:
-   `Hola {{1}}, te recordamos tu cita en Sebas Barber el {{2}} a las {{3}}. Si no puedes asistir, avísanos por este medio.`
-3. En `.env`: `WHATSAPP_ENABLED=true`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`.
-4. Reinicia. Cada 5 minutos envía el recordatorio a las citas confirmadas que empiezan dentro de `REMINDER_HOURS_BEFORE` horas (24 por defecto), una sola vez por cita. Si se reprograma, se reenvía.
+Al reservar, el cliente recibe por WhatsApp un link privado `https://tu-dominio/cita/<token>`. Desde ahí puede:
 
-Coste aproximado en Colombia: menos de 1 USD al mes para 600 mensajes (confirma la tarifa vigente en Meta).
+- ver su cita (día, hora, estado);
+- **cambiar** el día o la hora, dentro de la agenda abierta (le llega de nuevo la confirmación por WhatsApp);
+- **cancelar** (la hora queda libre).
+
+Solo se puede cambiar o cancelar si la cita sigue confirmada y falta al menos `MIN_LEAD_MINUTES`. Si WhatsApp no está configurado o el envío falla, la pantalla de confirmación muestra el botón **Ver mi cita** con el mismo link. Los cambios del cliente quedan en **Actividad** del panel como `cliente`.
+
+## WhatsApp con Meta Cloud API
+
+Los mensajes que envía el negocio tienen que ser **plantillas aprobadas** por Meta.
+
+1. En [developers.facebook.com](https://developers.facebook.com/apps) crea una app tipo **Business** y agrega el producto **WhatsApp**. Queda conectada a la cuenta de WhatsApp Business (WABA) del negocio.
+2. En **WhatsApp → Configuración de la API**: agrega y verifica el número del negocio y copia su **Phone number ID**.
+   Con el número de prueba de Meta solo se puede enviar a números que agregues como destinatarios de prueba (hasta 5).
+3. Token permanente: en **Configuración del negocio → Usuarios del sistema**, crea un usuario admin, asígnale la app y la cuenta de WhatsApp y genera un token con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`. (El token temporal del panel dura 24 h.)
+4. En **WhatsApp Manager → Plantillas**, crea estas dos (categoría **Utilidad**, idioma **Español (es)**):
+
+   **`confirmacion_cita`**, se envía al reservar y al reprogramar:
+   ```
+   Hola {{1}}, tu cita en Sebas Barber quedó confirmada para el {{2}} a las {{3}}.
+
+   Desde este link puedes ver, cambiar o cancelar tu cita: {{4}}
+
+   ¡Te esperamos!
+   ```
+   Ejemplos para la revisión: `Carlos`, `sábado 7 de noviembre`, `8:00 a. m.`, `https://sebasbarber.com/cita/abc123`.
+
+   **`recordatorio_cita`**, se envía `REMINDER_HOURS_BEFORE` horas antes:
+   ```
+   Hola {{1}}, te recordamos tu cita en Sebas Barber el {{2}} a las {{3}}. Si no puedes asistir, avísanos por este medio.
+   ```
+5. En `.env`:
+   ```
+   PUBLIC_URL=https://tu-dominio.com
+   WHATSAPP_ENABLED=true
+   WHATSAPP_TOKEN=<token permanente>
+   WHATSAPP_PHONE_NUMBER_ID=<phone number id>
+   WHATSAPP_CONFIRM_TEMPLATE=confirmacion_cita
+   WHATSAPP_TEMPLATE=recordatorio_cita
+   WHATSAPP_LANG=es
+   ```
+   `PUBLIC_URL` es la dirección del sitio que va en el link. Si no está, se usa la del navegador (en local sería `localhost`, que no sirve en el celular del cliente).
+6. Reinicia. Los envíos quedan en **Actividad** y los errores en la consola del servidor.
+
+Coste aproximado en Colombia: los mensajes de utilidad cuestan centavos de dólar cada uno (confirma la tarifa vigente en Meta).
 
 ## Publicar
 
@@ -72,8 +111,11 @@ src/schedule.js      horarios, ventana de 2 semanas, disponibilidad
 src/holidays.js      festivos de Colombia
 src/db.js            SQLite
 src/auth.js          login admin desde .env
-src/reminders.js     recordatorios WhatsApp (opcional)
-public/              web pública (inicio y reservar)
+src/whatsapp.js      cliente de WhatsApp Cloud API (Meta)
+src/notify.js        confirmación por WhatsApp con el link de la cita
+src/reminders.js     recordatorios WhatsApp
+src/cita-routes.js   API del cliente: ver, reprogramar, cancelar (/api/cita/:token)
+public/              web pública (inicio, reservar, mi cita)
 admin-ui/            panel /admin
 test/                pruebas
 ```

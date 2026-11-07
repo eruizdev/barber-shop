@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi cita | Sebas Barber</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0b0b0b">
+  <link rel="icon" href="/img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="stripe"></div>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/img/logo-192.png" alt=""><span>Sebas Barber</span></a>
+      <a class="btn btn-sm btn-outline" href="/">Inicio</a>
+    </div>
+  </header>
+
+  <main class="book">
+    <div class="wrap">
+      <h1>Mi cita</h1>
+      <p class="sub">Aquí puedes ver, cambiar o cancelar tu cita. Horario de Colombia.</p>
+
+      <p class="error" id="loadError" hidden></p>
+      <div class="notice" id="flash" hidden role="status"></div>
+
+      <section class="panel appt-card" id="card" hidden>
+        <span class="status" id="status"></span>
+        <p class="when" id="when"></p>
+        <p class="meta" id="meta"></p>
+        <p class="meta" id="lockedNote" hidden></p>
+        <div class="actions" id="actions" hidden>
+          <button class="btn" type="button" id="btnChange">Cambiar fecha u hora</button>
+          <button class="btn btn-outline btn-danger" type="button" id="btnCancel">Cancelar cita</button>
+        </div>
+        <div class="actions" id="contact"></div>
+      </section>
+
+      <section class="panel" id="confirmCancel" hidden>
+        <h2>¿Cancelar tu cita?</h2>
+        <p id="cancelText"></p>
+        <p class="error" id="cancelError" role="alert"></p>
+        <div class="actions">
+          <button class="btn btn-danger" type="button" id="btnCancelYes">Sí, cancelar</button>
+          <button class="btn btn-outline" type="button" id="btnCancelNo">No, mantenerla</button>
+        </div>
+      </section>
+
+      <div id="change" hidden>
+        <section class="panel">
+          <h2><i>1</i> Elige el nuevo día</h2>
+          <div class="slots days" id="days"></div>
+          <p class="empty" id="daysEmpty" hidden>No hay días con horas libres en la agenda abierta.</p>
+        </section>
+        <section class="panel" id="stepTime" hidden>
+          <h2><i>2</i> Elige la hora <small id="dayLabel"></small></h2>
+          <div class="slots" id="slots"></div>
+          <p class="empty" id="slotsEmpty" hidden>No quedan horas libres este día. Elige otro día.</p>
+          <p class="error" id="slotsError" role="alert"></p>
+        </section>
+        <section class="panel" id="stepConfirm" hidden>
+          <div class="summary" id="summary"></div>
+          <p class="error" id="changeError" role="alert"></p>
+          <div class="actions">
+            <button class="btn btn-lg" type="button" id="btnChangeYes">CONFIRMAR CAMBIO</button>
+            <button class="btn btn-outline" type="button" id="btnChangeNo">Volver</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/cita.js"></script>
+</body>
+</html>

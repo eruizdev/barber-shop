@@ -88,6 +88,19 @@
 .success .when { color: var(--text); font-size: 20px; }
 .success .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
+/* Mi cita (/cita/<token>) */
+.appt-card .when { font-family: var(--font-head); font-size: clamp(24px, 5vw, 34px); letter-spacing: 0.04em; margin: 14px 0 6px; }
+.appt-card .meta { color: var(--muted); margin-bottom: 4px; }
+.appt-card .meta b { color: var(--text); font-weight: 600; }
+.status { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--line-2); color: var(--muted); }
+.status.is-confirmed { color: var(--ok); border-color: var(--ok); }
+.status.is-cancelled, .status.is-no_show { color: var(--danger); border-color: var(--danger); }
+.panel .actions { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+.panel .actions:empty { display: none; }
+.chip small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+.chip.is-selected small { color: #2a2208; }
+.slots.days { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+
 @media (max-width: 760px) {
   .hero { padding: 28px 0 44px; }
   .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
