@@ -36,6 +36,10 @@
 .site-footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 15px; }
 .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .site-footer a { color: var(--gold); }
+.site-footer .credit { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+.site-footer .credit b { color: var(--text); font-weight: 600; }
+.site-footer .credit a { text-decoration: none; }
+.site-footer .credit a:hover { text-decoration: underline; }
 
 .nav { display: flex; gap: 10px; }
 
