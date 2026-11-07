@@ -1,0 +1,84 @@
+/* Sebas Barber — base: negro, grises, blanco hueso y dorado del logo */
+:root {
+  --bg: #0b0b0b;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --line: #2a2a2a;
+  --line-2: #3a3a3a;
+  --text: #f2f0eb;
+  --muted: #9b9b96;
+  --gold: #c9a24d;
+  --gold-2: #dcb865;
+  --gold-dark: #8d6f2c;
+  --danger: #c4584a;
+  --ok: #86a982;
+  --font-head: 'Oswald', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+h1, h2, h3 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  margin: 0;
+}
+p { margin: 0; }
+[hidden] { display: none !important; }
+
+/* Franja de barbero en negro / gris / blanco */
+.stripe {
+  height: 6px;
+  background: repeating-linear-gradient(
+    135deg,
+    #f2f0eb 0 10px, #0b0b0b 10px 20px, #6e6e6a 20px 30px, #0b0b0b 30px 40px
+  );
+}
+
+/* Botones */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-head); font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.14em; text-decoration: none;
+  background: var(--gold); color: #0b0b0b;
+  border: 1px solid var(--gold); border-radius: 2px;
+  padding: 14px 28px; font-size: 17px; cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn:hover { background: var(--gold-2); border-color: var(--gold-2); }
+.btn:focus-visible, .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible,
+.chip:focus-visible, .day:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn-sm { padding: 9px 18px; font-size: 14px; }
+.btn-lg { padding: 18px 44px; font-size: 22px; }
+.btn-outline { background: transparent; color: var(--text); border-color: var(--line-2); }
+.btn-outline:hover { background: var(--surface-2); border-color: var(--gold); color: var(--text); }
+.btn-danger { background: transparent; color: var(--danger); border-color: #5a2f29; }
+.btn-danger:hover { background: #2a1512; border-color: var(--danger); }
+
+/* Formularios */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field label { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.field input, .field select, .field textarea {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--line-2); border-radius: 2px;
+  padding: 12px 14px; font: inherit; font-size: 17px; width: 100%;
+  color-scheme: dark;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold); outline: none; }
+.field .hint { font-size: 14px; color: var(--muted); }
+.error { color: #e0897d; font-size: 15px; min-height: 1.4em; }

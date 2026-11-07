@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sebas Barber | Barbería</title>
+  <meta name="description" content="Sebas Barber. Reserva tu cita en línea. Cada corte dura 1 hora.">
+  <meta name="theme-color" content="#0b0b0b">
+  <link rel="icon" href="/img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="stripe"></div>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/img/logo-192.png" alt=""><span>Sebas Barber</span></a>
+      <a class="btn btn-sm" href="/reservar">Reservar cita</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <p class="eyebrow">Barbería</p>
+          <h1>Sebas<br>Barber</h1>
+          <p class="lead">Corte con precisión y sin esperas. Reserva tu hora y llega a tu turno.</p>
+          <a class="btn btn-lg" href="/reservar">RESERVAR CITA</a>
+          <p class="agenda-note" id="agendaNote"></p>
+        </div>
+        <div class="hero-logo">
+          <img src="/img/logo.jpg" alt="Logo de Sebas Barber" width="900" height="935">
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Horarios <span>de atención</span></h2>
+        <div class="cards">
+          <article class="card">
+            <h3>Lunes a miércoles y festivos</h3>
+            <p>8:00 a. m. – 11:00 a. m.</p>
+            <p>2:00 p. m. – 8:00 p. m.</p>
+          </article>
+          <article class="card">
+            <h3>Jueves a sábado</h3>
+            <p>8:00 a. m. – 8:00 p. m.</p>
+            <p class="muted">Horario continuo</p>
+          </article>
+          <article class="card">
+            <h3>Domingo</h3>
+            <p>Cerrado</p>
+            <p class="muted">Horario de Colombia (UTC-5)</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Cómo <span>reservar</span></h2>
+        <div class="steps">
+          <div class="step"><b>Elige el día</b><span>El calendario muestra las 2 semanas abiertas. Cada 2 semanas se habilitan las siguientes.</span></div>
+          <div class="step"><b>Elige la hora</b><span>Cada reserva es de 1 hora por corte.</span></div>
+          <div class="step"><b>Confirma</b><span>Déjanos tu nombre y tu WhatsApp. Recibes un código de tu cita.</span></div>
+        </div>
+        <p style="margin-top:32px"><a class="btn" href="/reservar">RESERVAR CITA</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© <span id="year"></span> Sebas Barber</span>
+      <span id="contact"></span>
+    </div>
+  </footer>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/home.js"></script>
+</body>
+</html>

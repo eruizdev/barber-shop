@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservar cita | Sebas Barber</title>
+  <meta name="description" content="Reserva tu cita en Sebas Barber. Elige día y hora.">
+  <meta name="theme-color" content="#0b0b0b">
+  <link rel="icon" href="/img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="stripe"></div>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/img/logo-192.png" alt=""><span>Sebas Barber</span></a>
+      <a class="btn btn-sm btn-outline" href="/">Inicio</a>
+    </div>
+  </header>
+
+  <main class="book">
+    <div class="wrap">
+      <h1>Reserva tu cita</h1>
+      <p class="sub">Cada reserva es de 1 hora por corte. Horario de Colombia.</p>
+
+      <div class="notice" id="notice" hidden></div>
+      <p class="error" id="loadError" hidden></p>
+
+      <div id="flow">
+        <section class="panel" id="stepDay">
+          <h2><i>1</i> Elige el día</h2>
+          <div class="cal" id="cal" role="grid" aria-label="Calendario de reservas"></div>
+        </section>
+
+        <section class="panel" id="stepTime" hidden>
+          <h2><i>2</i> Elige la hora <small id="dayLabel"></small></h2>
+          <div class="slots" id="slots"></div>
+          <p class="empty" id="slotsEmpty" hidden>No quedan horas libres este día. Elige otro día.</p>
+        </section>
+
+        <section class="panel" id="stepForm" hidden>
+          <h2><i>3</i> Tus datos</h2>
+          <div class="summary" id="summary"></div>
+          <form id="form" novalidate>
+            <div class="form-grid">
+              <div class="field">
+                <label for="name">Nombre</label>
+                <input id="name" name="name" autocomplete="name" maxlength="60" required>
+              </div>
+              <div class="field">
+                <label for="phone">WhatsApp (celular)</label>
+                <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="300 123 4567" maxlength="16" required>
+              </div>
+              <div class="field full">
+                <label for="note">Nota (opcional)</label>
+                <input id="note" name="note" maxlength="200" placeholder="Ej. corte + barba">
+              </div>
+            </div>
+            <p class="error" id="formError" role="alert"></p>
+            <button class="btn btn-lg" type="submit" id="submit">CONFIRMAR CITA</button>
+          </form>
+        </section>
+      </div>
+
+      <section class="panel success" id="done" hidden>
+        <h2>Cita confirmada</h2>
+        <p class="when" id="doneWhen"></p>
+        <div class="code" id="doneCode"></div>
+        <p>Guarda este código. Si necesitas cambiar o cancelar tu cita, avísanos con anticipación.</p>
+        <div class="actions" id="doneActions">
+          <a class="btn btn-outline" href="/">Volver al inicio</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/reservar.js"></script>
+</body>
+</html>
