@@ -30,12 +30,16 @@ module.exports = {
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   trustProxy: process.env.TRUST_PROXY === 'true',
   sessionSecret,
+  // URL pública del sitio, para los links que se envían por WhatsApp. Ej: https://sebasbarber.com
+  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/+$/, ''),
   dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'sebasbarber.db'),
   wa: {
     enabled: process.env.WHATSAPP_ENABLED === 'true',
     token: process.env.WHATSAPP_TOKEN || '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
     template: process.env.WHATSAPP_TEMPLATE || 'recordatorio_cita',
+    // Plantilla que se envía al reservar o reprogramar, con el link de la cita.
+    confirmTemplate: process.env.WHATSAPP_CONFIRM_TEMPLATE || 'confirmacion_cita',
     lang: process.env.WHATSAPP_LANG || 'es',
     hoursBefore: num(process.env.REMINDER_HOURS_BEFORE, 24),
     apiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
