@@ -43,78 +43,125 @@
 
     <section class="section prices" id="precios">
       <div class="wrap">
-        <div class="fade-banner" aria-hidden="true">
-          <span class="fade-word">Fade</span>
-          <ol class="guards"><li>0</li><li>0.5</li><li>1</li><li>1.5</li><li>2</li><li>3</li></ol>
+        <div class="fade-banner">
+          <h2 class="fade-word">Servicios</h2>
+          <ol class="guards" aria-hidden="true"><li>0</li><li>0.5</li><li>1</li><li>1.5</li><li>2</li><li>3</li></ol>
         </div>
-        <h2>Servicios <span>y precios</span></h2>
 
-        <div class="menu">
-          <article class="menu-group">
+        <div class="svc-board">
+          <article class="svc-group">
             <header><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><h3>Cortes</h3></header>
-            <ul class="menu-list">
-            <li>
-              <div class="row"><b>Corte clásico</b><i></i><span class="price">$23.000</span></div>
-              <p>Corte a tijera <em>45 min</em></p>
-            </li>
-            <li>
-              <div class="row"><b>Corte premium</b><i></i><span class="price">$24.000</span></div>
-              <p>Corte urbano + cejas <em>45 min</em></p>
-            </li>
-            <li>
-              <div class="row"><b>Premium con barba</b><i></i><span class="price">$26.000</span></div>
-              <p>Corte urbano + cejas + barba <em>1 h</em></p>
-            </li>
+            <ul class="svc-list">
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/corte-clasico.jpg" alt="Corte clásico a tijera" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>Corte clásico</h4>
+                  <p>Corte a tijera</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>45 min</span></div>
+                </div>
+                <div class="svc-price">$23.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/corte-premium.jpg" alt="Corte urbano con fade" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>Corte premium</h4>
+                  <p>Corte urbano + cejas</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>45 min</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg></div></div>
+                </div>
+                <div class="svc-price">$24.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/premium-barba.jpg" alt="Corte urbano con barba" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>Premium con barba</h4>
+                  <p>Corte urbano + cejas + barba</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 h</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-fill"><path d="M3 5c0 10 4 16 9 16s9-6 9-16c-1 3-3 5-5 5H8C6 10 4 8 3 5z"/><path class="cut" d="M9 13.5q3-1.6 6 0"/></svg></div></div>
+                </div>
+                <div class="svc-price">$26.000</div>
+              </li>
             </ul>
           </article>
-
-          <article class="menu-group is-vip">
+          <article class="svc-group is-vip">
             <header><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M4 15 3 6l5 4 4-6 4 6 5-4-1 9z"/></svg><h3>VIP</h3></header>
-            <ul class="menu-list">
-            <li>
-              <div class="row"><b>VIP 1</b><i></i><span class="price">$75.000</span></div>
-              <p>Corte urbano + cejas + hidratación con repolarizador <em>1 h 30 min</em></p>
-            </li>
-            <li>
-              <div class="row"><b>VIP clásico</b><i></i><span class="price">$93.000</span></div>
-              <p>Corte clásico + cejas + limpieza facial <em>1 h</em></p>
-            </li>
-            <li>
-              <div class="row"><b>VIP premium</b><i></i><span class="price">$94.000</span></div>
-              <p>Corte urbano + cejas + limpieza facial <em>1 h</em></p>
-            </li>
-            <li>
-              <div class="row"><b>VIP premium con barba</b><i></i><span class="price">$96.000</span></div>
-              <p>Corte urbano + cejas + barba + limpieza facial <em>1 h</em></p>
-            </li>
+            <ul class="svc-list">
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/vip-1.jpg" alt="Hidratación con repolarizador" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>VIP 1</h4>
+                  <p>Corte urbano + cejas + hidratación con repolarizador</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 h 30 min</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i"><path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/><path d="M20.5 17v3M19 18.5h3"/></svg></div></div>
+                </div>
+                <div class="svc-price">$75.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/vip-clasico.jpg" alt="Limpieza facial con mascarilla" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>VIP clásico</h4>
+                  <p>Corte clásico + cejas + limpieza facial</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 h</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i"><ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8.5 12q1.5 1 3 0M12.5 12q1.5 1 3 0M10 17q2 1 4 0M20.5 2v3M19 3.5h3M3.5 19v3M2 20.5h3"/></svg></div></div>
+                </div>
+                <div class="svc-price">$93.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/vip-premium.jpg" alt="Limpieza facial con vapor" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>VIP premium</h4>
+                  <p>Corte urbano + cejas + limpieza facial</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 h</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i"><ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8.5 12q1.5 1 3 0M12.5 12q1.5 1 3 0M10 17q2 1 4 0M20.5 2v3M19 3.5h3M3.5 19v3M2 20.5h3"/></svg></div></div>
+                </div>
+                <div class="svc-price">$94.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/vip-premium-barba.jpg" alt="Arreglo de barba con máquina" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>VIP premium con barba</h4>
+                  <p>Corte urbano + cejas + barba + limpieza facial</p>
+                  <div class="svc-meta"><span class="svc-time"><svg viewBox="0 0 24 24" class="clock" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 h</span><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-brow"><path d="M2 15c5-7 15-7 20-1"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i i-fill"><path d="M3 5c0 10 4 16 9 16s9-6 9-16c-1 3-3 5-5 5H8C6 10 4 8 3 5z"/><path class="cut" d="M9 13.5q3-1.6 6 0"/></svg><b>+</b><svg viewBox="0 0 24 24" class="i"><ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8.5 12q1.5 1 3 0M12.5 12q1.5 1 3 0M10 17q2 1 4 0M20.5 2v3M19 3.5h3M3.5 19v3M2 20.5h3"/></svg></div></div>
+                </div>
+                <div class="svc-price">$96.000</div>
+              </li>
             </ul>
           </article>
-
-          <article class="menu-group">
-            <header><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><h3>Mensualidades</h3></header>
-            <ul class="menu-list">
-            <li>
-              <div class="row"><b>Premium</b><i></i><span class="price">$90.000</span></div>
-              <p>Plan mensual de corte premium</p>
-            </li>
-            <li>
-              <div class="row"><b>Premium con barba</b><i></i><span class="price">$105.000</span></div>
-              <p>Plan mensual de corte premium con barba</p>
-            </li>
-            </ul>
-          </article>
-
-          <article class="menu-group">
+          <article class="svc-group is-wide">
             <header><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h7v10H5zM7 11V8h3v3M10 6h2M15 5l1.5-1M15 8h2M15 11l1.5 1M19 4.5h.01M19 8h.01M19 11.5h.01"/></svg><h3>Otros servicios</h3></header>
-            <ul class="menu-list">
-            <li>
-              <div class="row"><b>Limpieza facial</b><i></i><span class="price">$75.000</span></div>
-              <p>Solo limpieza facial, sin corte</p>
-            </li>
-            <li>
-              <div class="row"><b>Diseño con aerógrafo</b><i></i><span class="price">+$7.000</span></div>
-              <p>Se suma al corte que elijas</p>
-            </li>
+            <ul class="svc-list">
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/limpieza-facial.jpg" alt="Limpieza facial con mascarilla" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>Limpieza facial</h4>
+                  <p>Solo limpieza facial, sin corte</p>
+                  <div class="svc-meta"><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8.5 12q1.5 1 3 0M12.5 12q1.5 1 3 0M10 17q2 1 4 0M20.5 2v3M19 3.5h3M3.5 19v3M2 20.5h3"/></svg></div></div>
+                </div>
+                <div class="svc-price">$75.000</div>
+              </li>
+              <li class="svc">
+                <img class="svc-photo" src="/img/servicios/aerografo.jpg" alt="Diseño con aerógrafo en el fade" loading="lazy" width="185" height="155">
+                <div class="svc-body">
+                  <h4>Diseño con aerógrafo</h4>
+                  <p>Se suma al corte que elijas</p>
+                  <div class="svc-meta"><div class="svc-icons" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><path d="M2 12h10l2-2h3v4h-3l-2 2H9l-2 6H4.5l2-6H2z"/><path d="M13 4h4v6M19 8h.01M21 6h.01M21 10h.01M23 8h.01"/></svg></div></div>
+                </div>
+                <div class="svc-price">+$7.000</div>
+              </li>
+            </ul>
+          </article>
+          <article class="svc-group is-wide">
+            <header><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><h3>Mensualidades</h3></header>
+            <ul class="svc-list">
+              <li class="svc no-photo">
+                <div class="svc-body">
+                  <h4>Premium</h4>
+                  <p>Plan mensual de corte premium</p>
+                </div>
+                <div class="svc-price">$90.000</div>
+              </li>
+              <li class="svc no-photo">
+                <div class="svc-body">
+                  <h4>Premium con barba</h4>
+                  <p>Plan mensual de corte premium con barba</p>
+                </div>
+                <div class="svc-price">$105.000</div>
+              </li>
             </ul>
           </article>
         </div>
