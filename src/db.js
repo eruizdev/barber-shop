@@ -2,14 +2,27 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite'); // SQLite incluido en Node (no requiere compilar)
 const cfg = require('./config');
 const { toMin, SLOT_MIN } = require('./schedule');
 
 fs.mkdirSync(path.dirname(cfg.dbPath), { recursive: true });
-const db = new Database(cfg.dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(cfg.dbPath);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+
+/** Igual que better-sqlite3: db.transaction(fn) devuelve una función que corre fn dentro de BEGIN/COMMIT. */
+db.transaction = (fn) => (...args) => {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = fn(...args);
+    db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+};
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS appointments (

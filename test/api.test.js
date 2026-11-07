@@ -22,6 +22,12 @@ process.env.BOOKING_ANCHOR = S.addDays(today, -((dow + 6) % 7));
 
 const { createApp } = require('../server');
 
+// Cierra la base antes de borrarla (en Windows no se puede borrar un archivo abierto)
+function cleanup() {
+  try { require('../src/db').db.close(); } catch {}
+  for (const f of [tmpDb, tmpDb + '-wal', tmpDb + '-shm']) fs.rmSync(f, { force: true });
+}
+
 let base, cookie = '';
 async function call(method, url, body, { auth = false } = {}) {
   const res = await fetch(base + url, {
@@ -175,11 +181,11 @@ const server = createApp().listen(0, async () => {
     assert.strictEqual((await fetch(base + '/.env')).status, 404);
 
     console.log('api.test.js OK');
-    server.close(); fs.rmSync(tmpDb, { force: true });
+    server.close(); cleanup();
     process.exit(0);
   } catch (e) {
     console.error('FALLÓ:', e);
-    server.close(); fs.rmSync(tmpDb, { force: true });
+    server.close(); cleanup();
     process.exit(1);
   }
 });

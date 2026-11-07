@@ -10,7 +10,7 @@ npm start          # http://localhost:3000   (panel: http://localhost:3000/admin
 npm test           # pruebas de horario, festivos y API
 ```
 
-Requiere Node 18 o superior. La base de datos (SQLite) se crea sola en `data/sebasbarber.db`.
+Requiere Node 22.13 o superior (usa el SQLite incluido en Node, no hay que compilar nada). La base de datos (SQLite) se crea sola en `data/sebasbarber.db`.
 
 ## Accesos del panel (`.env`)
 
