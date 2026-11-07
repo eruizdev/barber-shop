@@ -22,7 +22,7 @@
     n.replaceChildren(
       'Agenda abierta del ', h('strong', {}, longDate(cal.window.start)),
       ' al ', h('strong', {}, longDate(cal.window.end)),
-      '. Las siguientes fechas se habilitan el ', h('strong', {}, longDate(cal.window.nextUnlock)), '.'
+      '. Las siguientes fechas se habilitan el ', h('strong', {}, `${longDate(cal.window.nextUnlock)} a las ${cal.window.nextUnlockTime}`), '.'
     );
     n.hidden = false;
     renderCalendar();

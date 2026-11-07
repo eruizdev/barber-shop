@@ -34,7 +34,7 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 
 - 1 reserva = 1 hora. Una persona por hora (una sola silla).
 - Los **festivos de Colombia** se calculan solos para cualquier año (Ley Emiliani, Semana Santa, etc.).
-- **Calendario cada 2 semanas:** los bloques de 14 días se cuentan desde `BOOKING_ANCHOR` (un lunes, por defecto `2026-11-02`). Solo se puede reservar dentro del bloque actual; el siguiente se abre solo a las 00:00 hora de Colombia. Con el ancla por defecto: bloque actual hasta el 15 nov, siguiente desde el 16 nov, luego 30 nov, 14 dic...
+- **Calendario cada 2 semanas:** la agenda se abre domingo por medio a las 8:00 a. m. (hora Colombia, `BOOKING_OPEN_TIME`), con las 2 semanas siguientes (lunes a domingo). Los bloques se cuentan desde `BOOKING_ANCHOR` (un lunes, por defecto `2026-11-02`). Con el ancla por defecto: bloque actual 2–15 nov; el domingo 15 nov a las 8:00 a. m. se abre 16–29 nov; el domingo 29 nov, 30 nov–13 dic...
 - `MIN_LEAD_MINUTES` (60): no se puede reservar una hora que empieza en menos de ese tiempo.
 - `MAX_ACTIVE_PER_PHONE` (2): citas activas por celular, para evitar abusos.
 

@@ -49,7 +49,7 @@ const server = createApp().listen(0, async () => {
     let r = await call('GET', '/api/calendar');
     assert.strictEqual(r.status, 200);
     const cal = r.json;
-    assert.strictEqual(cal.window.nextUnlock, S.addDays(cal.window.end, 1));
+    assert.strictEqual(cal.window.nextUnlock, cal.window.end); // se abre el domingo en que termina el bloque
     assert.ok(cal.days.length > 0);
     assert.ok(cal.days.filter((d) => d.dow === 0 && !d.holiday).every((d) => !d.open), 'domingos cerrados');
 

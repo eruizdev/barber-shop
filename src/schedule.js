@@ -65,19 +65,23 @@ function dayInfo(dateStr) {
 }
 
 /**
- * Ventana de reservas: bloques de 14 días contados desde `anchor`.
- * Solo se puede reservar dentro del bloque actual; el siguiente se
- * desbloquea cuando empieza (00:00 hora Colombia).
+ * Ventana de reservas: bloques de 14 días (lunes a domingo x2) contados desde
+ * `anchor` (un lunes). Domingo por medio, a la hora `openTime` (hora Colombia),
+ * se abre el bloque siguiente: el domingo antes de que empiece.
+ * nowMinutes: minutos del día actual en hora Colombia.
  */
-function bookingWindow(todayStr, anchorStr) {
-  const idx = Math.floor(daysBetween(anchorStr, todayStr) / 14);
+function bookingWindow(todayStr, anchorStr, nowMinutes = 0, openTime = '08:00') {
+  // Desde la hora de apertura del domingo ya cuenta el bloque que empieza el lunes.
+  const effective = nowMinutes >= toMin(openTime) ? addDays(todayStr, 1) : todayStr;
+  const idx = Math.floor(daysBetween(anchorStr, effective) / 14);
   const start = addDays(anchorStr, idx * 14);
   const end = addDays(start, 13);
   return {
     start,
     end,
     firstBookable: todayStr > start ? todayStr : start,
-    nextUnlock: addDays(end, 1),
+    nextUnlock: end,          // domingo en que se abre el siguiente bloque
+    nextUnlockTime: openTime, // a esta hora
   };
 }
 

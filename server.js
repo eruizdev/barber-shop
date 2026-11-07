@@ -75,7 +75,7 @@ function createApp() {
 
   app.get('/api/calendar', (req, res) => {
     const now = S.nowParts();
-    const w = S.bookingWindow(now.date, cfg.anchor);
+    const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
     const days = [];
     for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) {
       const info = S.dayInfo(d);
@@ -89,7 +89,7 @@ function createApp() {
     }
     res.json({
       today: now.date,
-      window: { start: w.start, end: w.end, nextUnlock: w.nextUnlock },
+      window: { start: w.start, end: w.end, nextUnlock: w.nextUnlock, nextUnlockTime: S.format12(w.nextUnlockTime) },
       days,
     });
   });
@@ -97,7 +97,7 @@ function createApp() {
   function assertInWindow(date) {
     if (!S.isDateStr(date)) throw bad('Fecha no válida');
     const now = S.nowParts();
-    const w = S.bookingWindow(now.date, cfg.anchor);
+    const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
     if (date < w.firstBookable || date > w.end) {
       throw new HttpError(400, 'Esa fecha todavía no está habilitada para reservas');
     }

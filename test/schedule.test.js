@@ -38,11 +38,15 @@ assert.deepStrictEqual(S.dayInfo('2026-04-03').starts, lun.starts);
 assert.strictEqual(S.dayInfo('2026-12-25').starts.length, 9); // viernes festivo
 
 // ---- Ventana de 2 semanas (ancla lunes 2026-11-02)
-let w = S.bookingWindow('2026-11-06', '2026-11-02');
-assert.deepStrictEqual([w.start, w.end, w.firstBookable, w.nextUnlock], ['2026-11-02', '2026-11-15', '2026-11-06', '2026-11-16']);
-w = S.bookingWindow('2026-11-15', '2026-11-02'); // último día del bloque
-assert.strictEqual(w.end, '2026-11-15');
-w = S.bookingWindow('2026-11-16', '2026-11-02'); // se desbloquea el siguiente
+let w = S.bookingWindow('2026-11-06', '2026-11-02', 10 * 60);
+assert.deepStrictEqual([w.start, w.end, w.firstBookable, w.nextUnlock, w.nextUnlockTime], ['2026-11-02', '2026-11-15', '2026-11-06', '2026-11-15', '08:00']);
+w = S.bookingWindow('2026-11-15', '2026-11-02', 7 * 60 + 59); // domingo 7:59 a. m.: aún no abre
+assert.deepStrictEqual([w.start, w.end], ['2026-11-02', '2026-11-15']);
+w = S.bookingWindow('2026-11-15', '2026-11-02', 8 * 60); // domingo 8:00 a. m.: se abre el siguiente
+assert.deepStrictEqual([w.start, w.end, w.firstBookable], ['2026-11-16', '2026-11-29', '2026-11-16']);
+w = S.bookingWindow('2026-11-22', '2026-11-02', 9 * 60); // domingo intermedio: no abre nada
+assert.deepStrictEqual([w.start, w.end], ['2026-11-16', '2026-11-29']);
+w = S.bookingWindow('2026-11-16', '2026-11-02', 0);
 assert.deepStrictEqual([w.start, w.end, w.firstBookable], ['2026-11-16', '2026-11-29', '2026-11-16']);
 w = S.bookingWindow('2026-10-30', '2026-11-02'); // antes del ancla también funciona
 assert.deepStrictEqual([w.start, w.end], ['2026-10-19', '2026-11-01']);

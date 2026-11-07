@@ -23,6 +23,8 @@ module.exports = {
   whatsapp: (process.env.BUSINESS_WHATSAPP || '').replace(/\D/g, ''),
   // Lunes desde el que se cuentan los bloques de 2 semanas del calendario.
   anchor: process.env.BOOKING_ANCHOR || '2026-11-02',
+  // Hora (Colombia) del domingo en que se abre el siguiente bloque de 2 semanas.
+  openTime: process.env.BOOKING_OPEN_TIME || '08:00',
   minLeadMin: num(process.env.MIN_LEAD_MINUTES, 60),
   maxActivePerPhone: num(process.env.MAX_ACTIVE_PER_PHONE, 2),
   cookieSecure: process.env.COOKIE_SECURE === 'true',

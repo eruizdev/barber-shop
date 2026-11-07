@@ -15,7 +15,7 @@
     const note = document.getElementById('agendaNote');
     note.append(
       'Agenda abierta hasta el ', h('strong', {}, longDate(cal.window.end)),
-      '. Las siguientes fechas se habilitan el ', h('strong', {}, longDate(cal.window.nextUnlock)), '.'
+      '. Las siguientes fechas se habilitan el ', h('strong', {}, `${longDate(cal.window.nextUnlock)} a las ${cal.window.nextUnlockTime}`), '.'
     );
   }).catch(() => {});
 })();
