@@ -9,6 +9,7 @@ const cfg = require('./src/config');
 const repo = require('./src/db');
 const auth = require('./src/auth');
 const reminders = require('./src/reminders');
+const cleanup = require('./src/cleanup');
 const notify = require('./src/notify');
 const { citaRoutes } = require('./src/cita-routes');
 const S = require('./src/schedule');
@@ -175,7 +176,6 @@ function createApp() {
       const user = await auth.verifyLogin(req.body && req.body.user, req.body && req.body.pass);
       if (!user) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       auth.setSession(res, user);
-      repo.audit(user, 'login', '');
       res.json({ user, today: S.nowParts().date });
     } catch (e) { next(e); }
   });
@@ -240,8 +240,6 @@ function createApp() {
     return out;
   }
 
-  const describe = (a) => `#${a.id} ${a.name} ${a.date} ${a.time}`;
-
   admin.post('/appointments', (req, res, next) => {
     try {
       const f = readApptFields(req.body || {}, { partial: false });
@@ -250,7 +248,6 @@ function createApp() {
         return repo.insertAppointment({ ...f, status: 'confirmed', source: 'admin' });
       });
       const appt = create();
-      repo.audit(req.admin, 'crear cita', describe(appt));
       res.status(201).json({ appointment: appt });
     } catch (e) { next(e); }
   });
@@ -272,12 +269,7 @@ function createApp() {
         const after = repo.updateAppointment(id, { ...f, resetReminder: moved });
         return { before, after, moved };
       });
-      const { before, after, moved } = run();
-      let action = 'editar cita';
-      let detail = describe(after);
-      if (moved) { action = 'reprogramar'; detail = `${describe(before)} → ${after.date} ${after.time}`; }
-      else if (f.status && f.status !== before.status) { action = `estado: ${f.status}`; }
-      repo.audit(req.admin, action, detail);
+      const { after } = run();
       res.json({ appointment: after });
     } catch (e) {
       if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') return next(new HttpError(409, 'Ya hay una cita en ese horario'));
@@ -290,7 +282,6 @@ function createApp() {
       const a = repo.getAppointment(Number(req.params.id));
       if (!a) throw new HttpError(404, 'Cita no encontrada');
       repo.deleteAppointment(a.id);
-      repo.audit(req.admin, 'eliminar cita', describe(a));
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
@@ -309,7 +300,6 @@ function createApp() {
         time = b.time;
       }
       const blk = repo.addBlock(b.date, time, cleanText(b.reason, 80));
-      repo.audit(req.admin, 'bloquear', `${blk.date} ${blk.time || 'todo el día'} ${blk.reason}`.trim());
       res.status(201).json({ block: blk });
     } catch (e) { next(e); }
   });
@@ -319,12 +309,9 @@ function createApp() {
       const blk = repo.getBlock(Number(req.params.id));
       if (!blk) throw new HttpError(404, 'Bloqueo no encontrado');
       repo.deleteBlock(blk.id);
-      repo.audit(req.admin, 'desbloquear', `${blk.date} ${blk.time || 'todo el día'}`);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
-
-  admin.get('/audit', (req, res) => res.json({ audit: repo.listAudit() }));
 
   app.use('/api/admin', admin);
 
@@ -370,5 +357,6 @@ if (require.main === module) {
     console.log(`${cfg.name} escuchando en http://localhost:${cfg.port}`);
     console.log(`Panel admin: http://localhost:${cfg.port}/admin`);
     reminders.start();
+    cleanup.start();
   });
 }

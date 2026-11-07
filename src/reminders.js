@@ -23,7 +23,6 @@ async function tick() {
     try {
       await sendReminder(appt);
       repo.db.prepare('UPDATE appointments SET reminder_sent = 1 WHERE id = ?').run(appt.id);
-      repo.audit('sistema', 'recordatorio', `#${appt.id} ${appt.name} ${appt.date} ${appt.time}`);
     } catch (err) {
       repo.db.prepare('UPDATE appointments SET reminder_attempts = reminder_attempts + 1 WHERE id = ?').run(appt.id);
       console.error('[recordatorios]', err.message);

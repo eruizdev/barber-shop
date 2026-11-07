@@ -27,6 +27,8 @@ module.exports = {
   openTime: process.env.BOOKING_OPEN_TIME || '08:00',
   minLeadMin: num(process.env.MIN_LEAD_MINUTES, 60),
   maxActivePerPhone: num(process.env.MAX_ACTIVE_PER_PHONE, 2),
+  // Días que se guarda una cita después de su fecha; luego se borra sola.
+  historyDays: Math.max(0, num(process.env.HISTORY_DAYS, 3)),
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   trustProxy: process.env.TRUST_PROXY === 'true',
   sessionSecret,

@@ -1,5 +1,5 @@
 (function () {
-  const { api, h, longDate, shortDate, time12, addDays, phonePretty } = SB;
+  const { api, h, longDate, time12, addDays, phonePretty } = SB;
   const $ = (id) => document.getElementById(id);
 
   const STATUS = { confirmed: 'Confirmada', completed: 'Completada', no_show: 'No asistió', cancelled: 'Cancelada' };
@@ -32,13 +32,10 @@
     $('login').hidden = true;
     $('app').hidden = false;
     $('whoami').textContent = `Sesión: ${me.user}`;
-    $('bDate').value = today;
     setPreset('14');
-    loadBlocks();
   }
 
   async function init() {
-    buildBlockTimes();
     try { showApp(await api('/api/admin/me')); } catch (_) { showLogin(); }
   }
 
@@ -56,15 +53,6 @@
     try { await api('/api/admin/logout', { method: 'POST' }); } catch (_) { /* nada */ }
     showLogin();
   });
-
-  // ---------- pestañas ----------
-  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('is-active', x === b));
-    for (const name of ['citas', 'bloqueos', 'actividad']) $('tab-' + name).hidden = name !== b.dataset.tab;
-    if (b.dataset.tab === 'bloqueos') loadBlocks();
-    if (b.dataset.tab === 'actividad') loadAudit();
-    if (b.dataset.tab === 'citas') loadAppointments();
-  }));
 
   // ---------- filtros ----------
   function setPreset(p) {
@@ -135,8 +123,6 @@
   function apptRow(a) {
     const actions = [btn('Editar / reprogramar', () => openForm(a))];
     if (a.status === 'confirmed') {
-      actions.push(btn('Completada', () => setStatus(a, 'completed')));
-      actions.push(btn('No asistió', () => setStatus(a, 'no_show')));
       actions.push(btn('Cancelar', () => cancel(a), 'danger'));
     } else if (a.status === 'cancelled') {
       actions.push(btn('Reactivar', () => setStatus(a, 'confirmed')));
@@ -254,56 +240,6 @@
     } catch (e) { $('mError').textContent = e.message; }
     finally { btnSave.disabled = false; }
   });
-
-  // ---------- bloqueos ----------
-  function buildBlockTimes() {
-    const sel = $('bTime');
-    sel.append(h('option', { value: '' }, 'Todo el día'));
-    for (let hr = 6; hr <= 21; hr++) {
-      const t = String(hr).padStart(2, '0') + ':00';
-      sel.append(h('option', { value: t }, time12(t)));
-    }
-  }
-  async function loadBlocks() {
-    let d;
-    try { d = await call('/api/admin/blocks'); } catch (e) { toast(e.message, true); return; }
-    const box = $('blocks');
-    if (!d.blocks.length) { box.replaceChildren(h('div', { class: 'empty' }, 'No hay bloqueos próximos.')); return; }
-    box.replaceChildren(...d.blocks.map((b) => h('div', { class: 'row' },
-      h('div', {}, h('b', {}, longDate(b.date)), ' · ', b.time ? time12(b.time) : 'Todo el día',
-        b.reason ? h('small', {}, b.reason) : null),
-      btn('Quitar bloqueo', async () => {
-        try { await call(`/api/admin/blocks/${b.id}`, { method: 'DELETE' }); toast('Bloqueo eliminado'); loadBlocks(); }
-        catch (e) { toast(e.message, true); }
-      })
-    )));
-  }
-  $('blockForm').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    try {
-      await call('/api/admin/blocks', { method: 'POST', body: { date: $('bDate').value, time: $('bTime').value || null, reason: $('bReason').value } });
-      $('bReason').value = '';
-      toast('Bloqueado');
-      loadBlocks();
-    } catch (e) { toast(e.message, true); }
-  });
-
-  // ---------- actividad ----------
-  function stamp(sqlUtc) { // 'YYYY-MM-DD HH:MM:SS' en UTC -> hora Colombia
-    const d = new Date(sqlUtc.replace(' ', 'T') + 'Z');
-    const col = new Date(d.getTime() - 5 * 3600 * 1000);
-    const date = col.toISOString().slice(0, 10);
-    return `${shortDate(date)} ${time12(col.toISOString().slice(11, 16))}`;
-  }
-  async function loadAudit() {
-    let d;
-    try { d = await call('/api/admin/audit'); } catch (e) { toast(e.message, true); return; }
-    $('audit').replaceChildren(...(d.audit.length ? d.audit.map((r) => h('div', { class: 'audit-row' },
-      h('span', { class: 'when' }, stamp(r.created_at)),
-      h('span', { class: 'who' }, r.admin),
-      h('span', {}, `${r.action}${r.detail ? ' — ' + r.detail : ''}`)
-    )) : [h('div', { class: 'empty' }, 'Sin movimientos todavía.')]));
-  }
 
   init();
 })();

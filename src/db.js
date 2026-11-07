@@ -55,15 +55,10 @@ CREATE TABLE IF NOT EXISTS blocks (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_blocks_date ON blocks(date);
-
-CREATE TABLE IF NOT EXISTS audit (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  admin TEXT NOT NULL,
-  action TEXT NOT NULL,
-  detail TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 `);
+
+// Ya no se guarda historial de actividad (para no llenar la base de datos).
+db.exec('DROP TABLE IF EXISTS audit');
 
 // Token privado por cita: va en el link que recibe el cliente (/cita/<token>)
 // para ver, reprogramar o cancelar su cita sin crear cuenta.
@@ -107,9 +102,9 @@ const stmt = {
   addBlock: db.prepare('INSERT INTO blocks (date, time, reason) VALUES (?, ?, ?)'),
   getBlock: db.prepare('SELECT * FROM blocks WHERE id = ?'),
   delBlock: db.prepare('DELETE FROM blocks WHERE id = ?'),
+  purgeAppts: db.prepare('DELETE FROM appointments WHERE date < ?'),
+  purgeBlocks: db.prepare('DELETE FROM blocks WHERE date < ?'),
   listBlocks: db.prepare('SELECT * FROM blocks WHERE date >= ? ORDER BY date, time'),
-  addAudit: db.prepare('INSERT INTO audit (admin, action, detail) VALUES (?, ?, ?)'),
-  listAudit: db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT 100'),
   pendingReminders: db.prepare(`SELECT * FROM appointments
       WHERE status = 'confirmed' AND reminder_sent = 0 AND reminder_attempts < 3 AND date >= ?
       ORDER BY date, time`),
@@ -187,8 +182,11 @@ module.exports = {
   addBlock: (date, time, reason) => stmt.getBlock.get(stmt.addBlock.run(date, time, reason).lastInsertRowid),
   getBlock: (id) => stmt.getBlock.get(id),
   deleteBlock: (id) => stmt.delBlock.run(id).changes,
+  /** Borra citas y bloqueos con fecha anterior a `date` (YYYY-MM-DD). Devuelve cuántas citas borró. */
+  purgeBefore: (date) => {
+    stmt.purgeBlocks.run(date);
+    return Number(stmt.purgeAppts.run(date).changes);
+  },
   listBlocks: (from) => stmt.listBlocks.all(from),
-  audit: (admin, action, detail) => stmt.addAudit.run(admin, action, detail),
-  listAudit: () => stmt.listAudit.all(),
   pendingReminders: (today) => stmt.pendingReminders.all(today),
 };

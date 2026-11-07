@@ -12,7 +12,6 @@
 //
 // (Meta no acepta plantillas que empiecen o terminen con una variable.)
 const cfg = require('./config');
-const repo = require('./db');
 const wa = require('./whatsapp');
 const { formatDateEs, format12 } = require('./schedule');
 
@@ -36,7 +35,6 @@ async function sendConfirmation(appt, req) {
       template: cfg.wa.confirmTemplate,
       params: [appt.name.split(' ')[0], formatDateEs(appt.date), format12(appt.time), manageUrl(appt, req)],
     });
-    repo.audit('sistema', 'whatsapp confirmación', `#${appt.id} ${appt.name} ${appt.date} ${appt.time}`);
     return true;
   } catch (err) {
     console.error('[whatsapp confirmación]', err.message);

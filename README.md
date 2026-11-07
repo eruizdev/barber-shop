@@ -37,6 +37,7 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 - **Calendario cada 2 semanas:** la agenda se abre domingo por medio a las 8:00 a. m. (hora Colombia, `BOOKING_OPEN_TIME`), con las 2 semanas siguientes (lunes a domingo). Los bloques se cuentan desde `BOOKING_ANCHOR` (un lunes, por defecto `2026-11-02`). Con el ancla por defecto: bloque actual 2–15 nov; el domingo 15 nov a las 8:00 a. m. se abre 16–29 nov; el domingo 29 nov, 30 nov–13 dic...
 - `MIN_LEAD_MINUTES` (60): no se puede reservar una hora que empieza en menos de ese tiempo.
 - `MAX_ACTIVE_PER_PHONE` (2): citas activas por celular, para evitar abusos.
+- `HISTORY_DAYS` (3): días que se guarda una cita después de su fecha. Pasado ese tiempo se borra sola (se revisa al arrancar y cada 6 horas), para que la base de datos no crezca.
 
 ## Qué puede hacer el admin
 
@@ -44,7 +45,6 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 - **Crear** cita manual, **editar / reprogramar** (fecha, hora, nombre, celular, nota), marcar **completada** o **no asistió**, **cancelar** (libera la hora), **reactivar**, **eliminar**.
 - Botón **WhatsApp** por cita, con mensaje listo para avisar al cliente.
 - **Bloqueos** de un día completo o de una hora.
-- **Actividad**: quién hizo qué y cuándo.
 - Como admin puedes agendar fuera del calendario de 2 semanas y fuera del horario normal; el sistema solo impide que dos citas se pisen.
 
 ## El cliente gestiona su cita (link por WhatsApp)
@@ -55,7 +55,7 @@ Al reservar, el cliente recibe por WhatsApp un link privado `https://tu-dominio/
 - **cambiar** el día o la hora, dentro de la agenda abierta (le llega de nuevo la confirmación por WhatsApp);
 - **cancelar** (la hora queda libre).
 
-Solo se puede cambiar o cancelar si la cita sigue confirmada y falta al menos `MIN_LEAD_MINUTES`. Si WhatsApp no está configurado o el envío falla, la pantalla de confirmación muestra el botón **Ver mi cita** con el mismo link. Los cambios del cliente quedan en **Actividad** del panel como `cliente`.
+Solo se puede cambiar o cancelar si la cita sigue confirmada y falta al menos `MIN_LEAD_MINUTES`. Si WhatsApp no está configurado o el envío falla, la pantalla de confirmación muestra el botón **Ver mi cita** con el mismo link.
 
 ## WhatsApp con Meta Cloud API
 
@@ -92,7 +92,7 @@ Los mensajes que envía el negocio tienen que ser **plantillas aprobadas** por M
    WHATSAPP_LANG=es
    ```
    `PUBLIC_URL` es la dirección del sitio que va en el link. Si no está, se usa la del navegador (en local sería `localhost`, que no sirve en el celular del cliente).
-6. Reinicia. Los envíos quedan en **Actividad** y los errores en la consola del servidor.
+6. Reinicia. Los errores de envío aparecen en la consola del servidor.
 
 Coste aproximado en Colombia: los mensajes de utilidad cuestan centavos de dólar cada uno (confirma la tarifa vigente en Meta).
 

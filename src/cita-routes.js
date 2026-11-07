@@ -17,8 +17,6 @@ class CitaError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-const describe = (a) => `#${a.id} ${a.name} ${a.date} ${a.time}`;
-
 /** Se puede cambiar o cancelar si sigue confirmada y falta al menos MIN_LEAD_MINUTES. */
 const canModify = (a, nowMs = Date.now()) =>
   a.status === 'confirmed' && S.startMs(a.date, a.time) - nowMs >= cfg.minLeadMin * 60000;
@@ -103,7 +101,6 @@ function citaRoutes() {
         if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') throw new CitaError(409, 'Esa hora ya no está disponible. Elige otra.');
         throw e;
       }
-      repo.audit('cliente', 'reprogramar', `${describe(before)} → ${after.date} ${after.time}`);
       const whatsappSent = await notify.sendConfirmation(after, req);
       res.json({ appointment: publicView(after), whatsappSent });
     } catch (e) { next(e); }
@@ -114,7 +111,6 @@ function citaRoutes() {
       const appt = req.appt;
       if (!canModify(appt)) throw new CitaError(409, 'Esta cita ya no se puede cancelar. Escríbenos por WhatsApp.');
       const after = repo.updateAppointment(appt.id, { status: 'cancelled' });
-      repo.audit('cliente', 'cancelar', describe(appt));
       res.json({ appointment: publicView(after) });
     } catch (e) { next(e); }
   });

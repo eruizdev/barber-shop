@@ -42,11 +42,6 @@
         <button class="btn btn-sm btn-outline" id="logout" type="button">Salir</button>
       </div>
     </header>
-    <nav class="tabs wrap" aria-label="Secciones">
-      <button type="button" class="tab is-active" data-tab="citas">Citas</button>
-      <button type="button" class="tab" data-tab="bloqueos">Bloqueos</button>
-      <button type="button" class="tab" data-tab="actividad">Actividad</button>
-    </nav>
 
     <main class="wrap">
       <!-- Citas -->
@@ -68,8 +63,6 @@
               <select id="fStatus">
                 <option value="active">Confirmadas</option>
                 <option value="all">Todas</option>
-                <option value="completed">Completadas</option>
-                <option value="no_show">No asistió</option>
                 <option value="cancelled">Canceladas</option>
               </select>
             </div>
@@ -81,23 +74,6 @@
         <div id="list"></div>
       </section>
 
-      <!-- Bloqueos -->
-      <section id="tab-bloqueos" hidden>
-        <p class="muted intro">Bloquea un día completo o una hora (vacaciones, trámites, almuerzo). Esas horas dejan de aparecer para los clientes.</p>
-        <form class="block-form" id="blockForm">
-          <div class="field"><label for="bDate">Fecha</label><input type="date" id="bDate" required></div>
-          <div class="field"><label for="bTime">Hora</label><select id="bTime"></select></div>
-          <div class="field grow"><label for="bReason">Motivo (opcional)</label><input id="bReason" maxlength="80"></div>
-          <button class="btn" type="submit">Bloquear</button>
-        </form>
-        <div id="blocks"></div>
-      </section>
-
-      <!-- Actividad -->
-      <section id="tab-actividad" hidden>
-        <p class="muted intro">Últimos 100 movimientos del panel.</p>
-        <div id="audit"></div>
-      </section>
     </main>
   </div>
 

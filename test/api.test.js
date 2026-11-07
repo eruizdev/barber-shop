@@ -211,8 +211,14 @@ const server = createApp().listen(0, async () => {
     // Eliminar
     r = await call('DELETE', `/api/admin/appointments/${manualId}`, null, { auth: true });
     assert.strictEqual(r.status, 200);
-    r = await call('GET', '/api/admin/audit', null, { auth: true });
-    assert.ok(r.json.audit.length >= 5);
+
+    // Limpieza: se borran las citas de hace más de 3 días; las de hace 3 días o menos se conservan
+    const repo = require('../src/db');
+    const old4 = repo.insertAppointment({ name: 'Vieja', phone: '573000000004', date: S.addDays(today, -4), time: '10:00', service: 'x' });
+    const old3 = repo.insertAppointment({ name: 'Reciente', phone: '573000000003', date: S.addDays(today, -3), time: '10:00', service: 'x' });
+    assert.strictEqual(require('../src/cleanup').purge(today), 1);
+    assert.strictEqual(repo.getAppointment(old4.id), undefined);
+    assert.ok(repo.getAppointment(old3.id));
 
     // Origen cruzado bloqueado
     const x = await fetch(base + '/api/admin/logout', { method: 'POST', headers: { Origin: 'https://malo.example', Cookie: cookie } });
