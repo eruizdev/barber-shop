@@ -12,6 +12,7 @@ const reminders = require('./src/reminders');
 const notify = require('./src/notify');
 const { citaRoutes } = require('./src/cita-routes');
 const S = require('./src/schedule');
+const services = require('./src/services');
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -72,7 +73,10 @@ function createApp() {
 
   // ---------- API pública ----------
   app.get('/api/config', (req, res) => {
-    res.json({ name: cfg.name, whatsapp: cfg.whatsapp, today: S.nowParts().date });
+    res.json({
+      name: cfg.name, whatsapp: cfg.whatsapp, today: S.nowParts().date,
+      services: services.SERVICES, addon: services.ADDON,
+    });
   });
 
   app.get('/api/calendar', (req, res) => {
@@ -139,16 +143,17 @@ function createApp() {
       const b = req.body || {};
       const name = cleanText(b.name, 60);
       const phone = normalizePhone(b.phone);
-      const note = cleanText(b.note, 200);
+      const service = services.describeChoice(b.service, b.addon);
       if (name.length < 2) throw bad('Escribe tu nombre');
       if (!phone) throw bad('Escribe un celular colombiano válido (10 dígitos, ej. 300 123 4567)');
+      if (!service) throw bad('Elige el tipo de servicio');
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
-      const appt = book({ name, phone, note, date: b.date, time: b.time });
+      const appt = book({ name, phone, service, date: b.date, time: b.time });
       // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
       const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
-        code: appt.code, name: appt.name, phone: appt.phone, date: appt.date, time: appt.time,
+        code: appt.code, name: appt.name, phone: appt.phone, service: appt.service, date: appt.date, time: appt.time,
         manageUrl: notify.manageUrl(appt, req), whatsappSent,
       });
     } catch (e) {

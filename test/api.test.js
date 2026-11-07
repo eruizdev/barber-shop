@@ -67,22 +67,31 @@ const server = createApp().listen(0, async () => {
     const t1 = avail[0].time;
 
     // Validaciones
-    r = await call('POST', '/api/appointments', { name: 'A', phone: '300', date: day.date, time: t1 });
+    r = await call('POST', '/api/appointments', { name: 'A', phone: '300', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 400);
-    r = await call('POST', '/api/appointments', { name: 'Carlos Pérez', phone: '12345', date: day.date, time: t1 });
+    r = await call('POST', '/api/appointments', { name: 'Carlos Pérez', phone: '12345', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 400);
 
     // Reserva
-    r = await call('POST', '/api/appointments', { name: 'Carlos Pérez', phone: '300 123 4567', date: day.date, time: t1 });
+    r = await call('POST', '/api/appointments', { name: 'Carlos Pérez', phone: '300 123 4567', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 201, JSON.stringify(r.json));
     assert.match(r.json.code, /^[A-Z2-9]{6}$/);
 
+    // Servicio: obligatorio y válido
+    r = await call('POST', '/api/appointments', { name: 'Sin Servicio', phone: '3115556666', date: day.date, time: avail[1].time });
+    assert.strictEqual(r.status, 400);
+    r = await call('POST', '/api/appointments', { name: 'Servicio Falso', phone: '3115556666', date: day.date, time: avail[1].time, service: 'no-existe' });
+    assert.strictEqual(r.status, 400);
+    r = await call('GET', '/api/config');
+    assert.ok(r.json.services.length >= 8 && r.json.addon.price === 7000);
+    assert.ok(!r.json.services.some((x) => x.group === 'Mensualidades'), 'las mensualidades se compran por WhatsApp');
+
     // Doble reserva misma hora
-    r = await call('POST', '/api/appointments', { name: 'Otro', phone: '3109998888', date: day.date, time: t1 });
+    r = await call('POST', '/api/appointments', { name: 'Otro', phone: '3109998888', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 409);
 
     // Hora fuera de horario
-    r = await call('POST', '/api/appointments', { name: 'Otro', phone: '3109998888', date: day.date, time: '03:00' });
+    r = await call('POST', '/api/appointments', { name: 'Otro', phone: '3109998888', date: day.date, time: '03:00', service: 'corte-premium' });
     assert.strictEqual(r.status, 400);
 
     // Admin: sin sesión
@@ -108,6 +117,7 @@ const server = createApp().listen(0, async () => {
     assert.strictEqual(r.json.appointments.length, 1);
     const appt = r.json.appointments[0];
     assert.strictEqual(appt.phone, '573001234567');
+    assert.strictEqual(appt.service, 'Corte premium · $24.000');
 
     // Reprogramar a otra hora
     const t2 = avail.find((s) => s.time !== t1 && Math.abs(S.toMin(s.time) - S.toMin(t1)) >= 60).time;
@@ -134,7 +144,7 @@ const server = createApp().listen(0, async () => {
     assert.strictEqual(r.json.slots.find((s) => s.time === t1).available, true);
 
     // Reactivar choca si alguien tomó la hora
-    r = await call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: day.date, time: t1 });
+    r = await call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 201);
     assert.strictEqual(r.json.whatsappSent, false);
     assert.match(r.json.manageUrl, /\/cita\/[\w-]{32}$/);
@@ -146,7 +156,7 @@ const server = createApp().listen(0, async () => {
     const other = cal.days.filter((d) => d.free >= 1 && d.date !== day.date)[0];
     if (other) {
       const ss = (await call('GET', `/api/slots?date=${other.date}`)).json.slots.filter((s) => s.available);
-      const mk = (t) => call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: other.date, time: t });
+      const mk = (t) => call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: other.date, time: t, service: 'corte-premium' });
       assert.strictEqual((await mk(ss[0].time)).status, 201);
       assert.strictEqual((await mk(ss[ss.length - 1].time)).status, 409); // ya tiene 2
     }

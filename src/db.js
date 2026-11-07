@@ -80,6 +80,11 @@ if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appoin
 }
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_token ON appointments(manage_token)');
 
+// Migración: servicio elegido al reservar (ej. "Corte premium · $24.000")
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'service')) {
+  db.exec("ALTER TABLE appointments ADD COLUMN service TEXT NOT NULL DEFAULT ''");
+}
+
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode() {
   for (;;) {
@@ -94,8 +99,8 @@ const stmt = {
   activeTimes: db.prepare(`SELECT time FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
   blocksFor: db.prepare('SELECT id, date, time, reason FROM blocks WHERE date = ?'),
   countFuturePhone: db.prepare(`SELECT COUNT(*) AS c FROM appointments WHERE phone = ? AND status = 'confirmed' AND date >= ?`),
-  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, note, date, time, status, source)
-                      VALUES (@code, @token, @name, @phone, @note, @date, @time, @status, @source)`),
+  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, service, note, date, time, status, source)
+                      VALUES (@code, @token, @name, @phone, @service, @note, @date, @time, @status, @source)`),
   get: db.prepare('SELECT * FROM appointments WHERE id = ?'),
   getByToken: db.prepare('SELECT * FROM appointments WHERE manage_token = ?'),
   del: db.prepare('DELETE FROM appointments WHERE id = ?'),
@@ -126,6 +131,7 @@ function insertAppointment(data) {
     token: newToken(),
     name: data.name,
     phone: data.phone,
+    service: data.service || '',
     note: data.note || '',
     date: data.date,
     time: data.time,

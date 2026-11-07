@@ -79,7 +79,14 @@
   background: #121212; border: 1px solid #4a3d20; border-radius: 10px;
 }
 .svc-photo { width: 100%; height: 100%; object-fit: cover; align-self: stretch; }
-/* Mensualidades: sin foto, tarjeta compacta */
+/* Mensualidades: sin foto, tarjeta compacta, se compran por WhatsApp */
+.svc-wa {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+  color: var(--gold); font-weight: 600; font-size: 15px; text-decoration: none;
+  border: 1px solid var(--gold-dark); border-radius: 3px; padding: 6px 12px;
+}
+.svc-wa:hover { background: #19150c; border-color: var(--gold); }
+.svc-wa svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
 .svc.no-photo .svc-price { margin: 14px 0; }
 .svc-group.is-wide .svc-list:has(.no-photo) { grid-auto-rows: auto; }
@@ -157,6 +164,8 @@
 .summary b { color: var(--gold); font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .form-grid .full { grid-column: 1 / -1; }
+.check { display: flex; align-items: center; gap: 10px; margin: -4px 0 16px; cursor: pointer; font-size: 16px; }
+.check input { width: 20px; height: 20px; accent-color: var(--gold); }
 
 .success { text-align: center; padding: 40px 24px; }
 .success h2 { font-size: 34px; margin-bottom: 12px; }

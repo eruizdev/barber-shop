@@ -56,9 +56,15 @@
                 <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="300 123 4567" maxlength="16" required>
               </div>
               <div class="field full">
-                <label for="note">Nota (opcional)</label>
-                <input id="note" name="note" maxlength="200" placeholder="Ej. corte + barba">
+                <label for="service">Tipo de servicio</label>
+                <select id="service" name="service" required>
+                  <option value="">Elige el servicio…</option>
+                </select>
               </div>
+              <label class="check full" id="addonRow" hidden>
+                <input type="checkbox" id="addon">
+                <span id="addonLabel"></span>
+              </label>
             </div>
             <p class="error" id="formError" role="alert"></p>
             <button class="btn btn-lg" type="submit" id="submit">CONFIRMAR CITA</button>

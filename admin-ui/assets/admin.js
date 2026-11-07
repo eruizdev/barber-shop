@@ -155,6 +155,7 @@
           h('span', {}, `Código ${a.code}`),
           a.source === 'admin' ? h('span', {}, 'Creada en el panel') : null
         ),
+        a.service ? h('div', { class: 'service' }, a.service) : null,
         a.note ? h('div', { class: 'note' }, a.note) : null
       ),
       h('div', { class: 'actions' }, actions)

@@ -24,7 +24,7 @@ const canModify = (a, nowMs = Date.now()) =>
   a.status === 'confirmed' && S.startMs(a.date, a.time) - nowMs >= cfg.minLeadMin * 60000;
 
 const publicView = (a) => ({
-  code: a.code, name: a.name, date: a.date, time: a.time, note: a.note,
+  code: a.code, name: a.name, date: a.date, time: a.time, service: a.service, note: a.note,
   status: a.status, canModify: canModify(a),
 });
 

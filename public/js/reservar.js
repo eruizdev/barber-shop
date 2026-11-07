@@ -3,7 +3,8 @@
   const $ = (id) => document.getElementById(id);
 
   let cal = null;
-  let cfg = { whatsapp: '' };
+  let cfg = { whatsapp: '', services: [], addon: null };
+  const money = (n) => '$' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // 7000 -> $7.000
   let selDate = null;
   let selTime = null;
 
@@ -25,8 +26,41 @@
       '. Las siguientes fechas se habilitan el ', h('strong', {}, `${longDate(cal.window.nextUnlock)} a las ${cal.window.nextUnlockTime}`), '.'
     );
     n.hidden = false;
+    renderServices();
     renderCalendar();
   }
+
+  // ---------- Tipo de servicio ----------
+  function renderServices() {
+    const sel = $('service');
+    const groups = new Map();
+    for (const s of cfg.services || []) {
+      if (!groups.has(s.group)) groups.set(s.group, h('optgroup', { label: s.group }));
+      groups.get(s.group).append(h('option', { value: s.id }, `${s.name} — ${money(s.price)}`));
+    }
+    sel.append(...groups.values());
+    if (cfg.addon) $('addonLabel').textContent = `Agregar ${cfg.addon.name.toLowerCase()} (+${money(cfg.addon.price)})`;
+  }
+
+  function currentService() { return (cfg.services || []).find((s) => s.id === $('service').value) || null; }
+
+  function updateSummary() {
+    if (!selDate || !selTime) return;
+    const s = currentService();
+    const canAddon = Boolean(s && cfg.addon && !s.noAddon);
+    $('addonRow').hidden = !canAddon;
+    if (!canAddon) $('addon').checked = false;
+    const parts = ['Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(selTime)), ' (1 hora)'];
+    if (s) {
+      const addon = $('addon').checked;
+      const total = s.price + (addon ? cfg.addon.price : 0);
+      parts.push(h('br'), 'Servicio: ', h('b', {}, s.name + (addon ? ` + ${cfg.addon.name.toLowerCase()}` : '')),
+        ' · Total: ', h('b', {}, money(total)));
+    }
+    $('summary').replaceChildren(...parts);
+  }
+  $('service').addEventListener('change', updateSummary);
+  $('addon').addEventListener('change', updateSummary);
 
   function renderCalendar() {
     const grid = $('cal');
@@ -100,9 +134,7 @@
   function pickTime(time, slots) {
     selTime = time;
     renderSlots(slots);
-    $('summary').replaceChildren(
-      'Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(time)), ' (1 hora)'
-    );
+    updateSummary();
     $('formError').textContent = '';
     $('stepForm').hidden = false;
     $('stepForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -118,12 +150,13 @@
     const phone = $('phone').value.trim();
     if (name.length < 2) { err.textContent = 'Escribe tu nombre.'; $('name').focus(); return; }
     if (phone.replace(/\D/g, '').length < 10) { err.textContent = 'Escribe tu celular de 10 dígitos.'; $('phone').focus(); return; }
+    if (!$('service').value) { err.textContent = 'Elige el tipo de servicio.'; $('service').focus(); return; }
 
     btn.disabled = true; btn.textContent = 'ENVIANDO…';
     try {
       const r = await api('/api/appointments', {
         method: 'POST',
-        body: { name, phone, note: $('note').value.trim(), date: selDate, time: selTime },
+        body: { name, phone, service: $('service').value, addon: $('addon').checked, date: selDate, time: selTime },
       });
       showDone(r);
     } catch (e) {

@@ -39,7 +39,10 @@
     s.textContent = STATUS[appt.status] || appt.status;
     s.className = `status is-${appt.status}`;
     $('when').textContent = `${longDate(appt.date)} a las ${time12(appt.time)}`;
-    $('meta').replaceChildren('A nombre de ', h('b', {}, appt.name), ' · Código ', h('b', {}, appt.code));
+    $('meta').replaceChildren(
+      'A nombre de ', h('b', {}, appt.name), ' · Código ', h('b', {}, appt.code),
+      ...(appt.service ? [h('br'), 'Servicio: ', h('b', {}, appt.service)] : [])
+    );
 
     const locked = appt.status === 'confirmed' && !appt.canModify;
     show('actions', appt.canModify);
