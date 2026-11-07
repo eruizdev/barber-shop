@@ -37,6 +37,43 @@
 .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .site-footer a { color: var(--gold); }
 
+.nav { display: flex; gap: 10px; }
+
+/* Servicios y precios */
+.prices { scroll-margin-top: 70px; }
+.fade-banner { position: relative; margin-bottom: 28px; }
+.fade-word {
+  display: block; font-family: var(--font-head); font-weight: 600; text-transform: uppercase;
+  font-size: clamp(88px, 22vw, 220px); line-height: 0.85; letter-spacing: 0.04em;
+  /* se desvanece de arriba hacia abajo, como un fade */
+  background: linear-gradient(180deg, var(--text) 0%, var(--text) 30%, var(--gold) 55%, rgba(201, 162, 77, 0) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 1px rgba(201, 162, 77, 0.35);
+  user-select: none;
+}
+.guards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; max-width: 520px; }
+.guards li { font-family: var(--font-head); font-size: 13px; letter-spacing: 0.1em; color: var(--muted); padding-top: 8px; border-top: 6px solid var(--gold); }
+.guards li:nth-child(1) { border-color: #2a2418; }
+.guards li:nth-child(2) { border-color: #43391f; }
+.guards li:nth-child(3) { border-color: #5f4e27; }
+.guards li:nth-child(4) { border-color: #7f6730; }
+.guards li:nth-child(5) { border-color: #a5853c; }
+.guards li::before { content: '#'; opacity: 0.6; }
+
+.menu { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.menu-group { background: var(--surface); border: 1px solid var(--line); padding: 24px; }
+.menu-group.is-vip { border-color: var(--gold-dark); background: linear-gradient(160deg, #1a160c 0%, var(--surface) 55%); }
+.menu-group header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.menu-group h3 { font-size: 22px; letter-spacing: 0.12em; color: var(--gold); }
+.ico { width: 28px; height: 28px; flex: none; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.menu-list .row { display: flex; align-items: baseline; gap: 10px; }
+.menu-list b { font-family: var(--font-head); font-weight: 500; font-size: 19px; letter-spacing: 0.06em; text-transform: uppercase; }
+.menu-list i { flex: 1; border-bottom: 1px dotted var(--line-2); transform: translateY(-5px); min-width: 16px; }
+.menu-list .price { font-family: var(--font-head); font-size: 20px; color: var(--gold); white-space: nowrap; }
+.menu-list p { color: var(--muted); font-size: 15px; margin-top: 2px; }
+.menu-list em { font-style: normal; white-space: nowrap; margin-left: 6px; padding: 1px 8px; border: 1px solid var(--line-2); font-size: 12px; letter-spacing: 0.08em; color: var(--text); }
+
 /* Reservar */
 .book { padding: 36px 0 80px; }
 .book h1 { font-size: clamp(34px, 7vw, 52px); margin-bottom: 8px; }
@@ -104,6 +141,9 @@
 @media (max-width: 760px) {
   .hero { padding: 28px 0 44px; }
   .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
+  .menu { grid-template-columns: 1fr; }
+  .menu-group { padding: 20px 16px; }
+  .nav .btn-outline { display: none; }
   .hero-logo { order: -1; max-width: 340px; width: 100%; margin-inline: auto; }
   .btn-lg { width: 100%; padding: 18px 20px; }
   .form-grid { grid-template-columns: 1fr; }
