@@ -32,7 +32,23 @@
     $('login').hidden = true;
     $('app').hidden = false;
     $('whoami').textContent = `Sesión: ${me.user}`;
+    resetFixedForm();
     setPreset('14');
+  }
+
+  // ---------- vistas: lista / calendario / turnos fijos ----------
+  let view = 'lista';
+  function setView(v) {
+    view = v;
+    document.querySelectorAll('#views .view-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.view === v));
+    for (const name of ['lista', 'calendario', 'fijos']) $('view-' + name).hidden = name !== v;
+    refresh();
+  }
+  document.querySelectorAll('#views .view-btn').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  function refresh() {
+    if (view === 'calendario') loadWeek();
+    else if (view === 'fijos') loadFixed();
+    else loadAppointments();
   }
 
   async function init() {
@@ -152,7 +168,7 @@
     try {
       await call(`/api/admin/appointments/${a.id}`, { method: 'PATCH', body });
       toast(okMsg);
-      loadAppointments();
+      refresh();
     } catch (e) { toast(e.message, true); }
   }
   const setStatus = (a, status) => patch(a, { status }, `Cita de ${a.name}: ${STATUS[status].toLowerCase()}`);
@@ -166,7 +182,7 @@
     try {
       await call(`/api/admin/appointments/${a.id}`, { method: 'DELETE' });
       toast('Cita eliminada');
-      loadAppointments();
+      refresh();
     } catch (e) { toast(e.message, true); }
   }
 
@@ -174,13 +190,14 @@
   const modal = $('modal');
   let slotsCache = [];
 
-  function openForm(a) {
+  function openForm(a, preset) {
     editing = a || null;
     $('modalTitle').textContent = a ? 'Editar / reprogramar cita' : 'Nueva cita';
     $('mName').value = a ? a.name : '';
     $('mPhone').value = a ? phonePretty(a.phone) : '';
     $('mDate').value = a ? a.date : (($('fFrom').value && $('fFrom').value >= today) ? $('fFrom').value : today);
     $('mTime').value = a ? a.time : '';
+    if (!a && preset) { $('mDate').value = preset.date; $('mTime').value = preset.time; }
     $('mNote').value = a ? a.note : '';
     $('mError').textContent = '';
     loadChips();
@@ -205,9 +222,10 @@
       box.replaceChildren(...d.slots.map((s) => h('button', {
         type: 'button', class: 'chip-btn' + ($('mTime').value === s.time ? ' is-active' : ''),
         disabled: !s.available && s.reason !== 'blocked',
-        title: s.reason === 'blocked' ? 'Hora bloqueada (puedes agendar igual como admin)' : '',
+        title: s.reason === 'blocked' ? 'Hora bloqueada (puedes agendar igual como admin)'
+          : s.reason === 'fixed' ? 'Turno fijo: libéralo primero desde el calendario' : '',
         onclick: () => { $('mTime').value = s.time; markChip(); },
-      }, time12(s.time) + (s.reason === 'blocked' ? ' (bloq.)' : ''))));
+      }, time12(s.time) + (s.reason === 'blocked' ? ' (bloq.)' : s.reason === 'fixed' ? ' (fijo)' : ''))));
     } catch (e) { hint.textContent = e.message; }
   }
   function markChip() {
@@ -236,10 +254,204 @@
       else await call('/api/admin/appointments', { method: 'POST', body });
       modal.close();
       toast(editing ? 'Cita actualizada' : 'Cita creada');
-      loadAppointments();
+      refresh();
     } catch (e) { $('mError').textContent = e.message; }
     finally { btnSave.disabled = false; }
   });
+
+  // ---------- calendario semanal ----------
+  const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const FIRST = 8 * 60;                 // 8:00
+  const ROWS = 12;                      // 8:00 ... 19:00
+  const toMin = (t) => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; };
+  const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const mondayOf = (d) => addDays(d, -((SB.dow(d) + 6) % 7));
+  // Semana que se abre primero: la actual; el domingo (cerrado) ya muestra la siguiente
+  const startWeek = () => (SB.dow(today) === 0 ? addDays(today, 1) : mondayOf(today));
+  const weeksBetween = (a, b) => Math.round((SB.parse(b) - SB.parse(a)) / 86400000) / 7;
+  const freqText = (f) => (f.every === 2 ? 'Cada 2 semanas' : 'Cada semana');
+  let weekStart = '';
+
+  async function loadWeek() {
+    if (!weekStart) weekStart = startWeek();
+    const to = addDays(weekStart, 6);
+    $('calLabel').textContent = `${SB.shortDate(weekStart)} – ${SB.shortDate(to)}`;
+    let data;
+    try { data = await call(`/api/admin/agenda?from=${weekStart}&to=${to}`); } catch (e) { toast(e.message, true); return; }
+    renderWeek(data.days);
+  }
+  $('calPrev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); loadWeek(); });
+  $('calNext').addEventListener('click', () => { weekStart = addDays(weekStart, 7); loadWeek(); });
+  $('calToday').addEventListener('click', () => { weekStart = startWeek(); loadWeek(); });
+
+  function renderWeek(days) {
+    const wk = $('wk');
+    const cells = [h('div', { class: 'wk-corner' })];
+    for (let r = 0; r < ROWS; r++) {
+      cells.push(h('div', { class: 'wk-hour', style: `grid-row:${r + 2}` }, time12(hhmm(FIRST + r * 60))));
+    }
+    days.forEach((d, i) => {
+      const col = i + 2;
+      const at = (r, span = 1) => `grid-column:${col};grid-row:${r + 2} / span ${span}`;
+      cells.push(h('div', { class: 'wk-day' + (d.date === today ? ' is-today' : ''), style: `grid-column:${col};grid-row:1` },
+        h('b', {}, `${DIAS[d.dow].slice(0, 3)} ${SB.dayNum(d.date)}`),
+        d.date === today ? h('small', {}, 'Hoy') : (d.holiday ? h('small', {}, 'Festivo') : null)));
+
+      const taken = new Array(ROWS).fill(false);
+      const rowOf = (t) => Math.floor((toMin(t) - FIRST) / 60);
+      // citas reservadas (web o panel); las de 2 horas ocupan 2 filas
+      for (const a of d.appointments) {
+        const r = rowOf(a.time);
+        if (r < 0 || r >= ROWS) continue;
+        const span = Math.min(a.slots || 1, ROWS - r);
+        for (let k = 0; k < span; k++) taken[r + k] = true;
+        cells.push(h('button', { type: 'button', class: 'wk-item is-appt', style: at(r, span), onclick: () => openForm(a) },
+          h('b', {}, a.name),
+          h('span', {}, phonePretty(a.phone)),
+          a.service ? h('small', {}, a.service.split(' · ')[0] + (span === 2 ? ' · 2 h' : '')) : (span === 2 ? h('small', {}, '2 horas') : null)));
+      }
+      // turnos fijos (y los liberados ese día)
+      for (const f of d.fixed) {
+        const r = rowOf(f.time);
+        if (r < 0 || r >= ROWS || taken[r]) continue;
+        taken[r] = true;
+        if (f.skipped) {
+          cells.push(h('button', { type: 'button', class: 'wk-cell is-freed', style: at(r), onclick: () => openFixedMenu(f, d.date) },
+            h('small', {}, `Libre · ${f.name} no viene`)));
+        } else {
+          cells.push(h('button', { type: 'button', class: 'wk-item is-fixed', style: at(r), onclick: () => openFixedMenu(f, d.date) },
+            h('b', {}, f.name),
+            f.phone ? h('span', {}, phonePretty(f.phone)) : null,
+            h('small', {}, f.every === 2 ? 'Fijo · c/2 sem' : 'Fijo')));
+        }
+      }
+      // horas libres y cerradas
+      for (let r = 0; r < ROWS; r++) {
+        if (taken[r]) continue;
+        const s = FIRST + r * 60;
+        const open = d.ranges.some(([a, b]) => s >= a && s + 60 <= b);
+        const past = d.date < today;
+        cells.push(open && !past
+          ? h('button', { type: 'button', class: 'wk-cell is-free', style: at(r), title: 'Agendar aquí',
+            onclick: () => openForm(null, { date: d.date, time: hhmm(s) }) }, '+')
+          : h('div', { class: 'wk-cell ' + (open ? 'is-past' : 'is-closed'), style: at(r) }));
+      }
+    });
+    wk.replaceChildren(...cells);
+  }
+
+  // ---------- turno fijo tocado en el calendario ----------
+  const fmodal = $('fixedModal');
+  function openFixedMenu(f, date) {
+    $('fmTitle').textContent = f.name;
+    $('fmInfo').textContent = `${longDate(date)} · ${time12(f.time)} · ${freqText(f)}${f.phone ? ' · ' + phonePretty(f.phone) : ''}`
+      + (f.skipped ? ' · Liberado este día' : '');
+    const acts = [];
+    if (f.skipped) acts.push(btn('Volver a bloquear este día', () => skipFixed(f, date, false)));
+    else acts.push(btn('Liberar solo este día', () => skipFixed(f, date, true)));
+    acts.push(btn('Editar turno fijo', () => { fmodal.close(); setView('fijos'); editFixed(f); }));
+    if (f.phone) acts.push(h('a', { class: 'btn btn-sm btn-outline', href: `https://wa.me/${f.phone}`, target: '_blank', rel: 'noopener' }, 'WhatsApp'));
+    acts.push(btn('Cerrar', () => fmodal.close()));
+    $('fmActions').replaceChildren(...acts);
+    fmodal.showModal();
+  }
+  async function skipFixed(f, date, free) {
+    try {
+      await call(`/api/admin/fixed/${f.id}/skips/${date}`, { method: free ? 'PUT' : 'DELETE' });
+      fmodal.close();
+      toast(free ? `Hora de ${f.name} libre solo el ${longDate(date)}` : `Turno de ${f.name} bloqueado de nuevo`);
+      loadWeek();
+    } catch (e) { toast(e.message, true); }
+  }
+
+  // ---------- turnos fijos: lista y formulario ----------
+  let fixedEditing = null;
+  const nextDow = (dow, from = today) => addDays(from, (dow - SB.dow(from) + 7) % 7);
+  function nextOccurrence(f) {
+    if (f.start_date >= today) return f.start_date;
+    const first = nextDow(f.dow);
+    for (let i = 0; i < 2; i++) {
+      const c = addDays(first, i * 7);
+      if (weeksBetween(f.start_date, c) % f.every === 0) return c;
+    }
+    return first;
+  }
+
+  async function loadFixed() {
+    let d;
+    try { d = await call('/api/admin/fixed'); } catch (e) { toast(e.message, true); return; }
+    const order = [1, 2, 3, 4, 5, 6, 0];
+    const box = $('fixedList');
+    if (!d.fixed.length) { box.replaceChildren(h('div', { class: 'empty' }, 'No hay turnos fijos.')); return; }
+    box.replaceChildren(...order.filter((dow) => d.fixed.some((f) => f.dow === dow)).map((dow) => h('div', { class: 'day-group' },
+      h('div', { class: 'day-head' }, DIAS[dow]),
+      d.fixed.filter((f) => f.dow === dow).map((f) => h('div', { class: 'fx-row' },
+        h('div', { class: 'time' }, time12(f.time)),
+        h('div', {},
+          h('div', { class: 'name' }, f.name),
+          h('div', { class: 'meta' },
+            f.phone ? h('span', {}, phonePretty(f.phone)) : h('span', {}, 'Sin celular'),
+            h('span', {}, freqText(f) + (f.every === 2 ? ` · próxima: ${SB.shortDate(nextOccurrence(f))}` : '')))),
+        h('div', { class: 'actions' },
+          btn('Editar', () => editFixed(f)),
+          btn('Eliminar', () => removeFixed(f), 'danger')))))));
+  }
+
+  function fixedHint() {
+    $('fxHint').textContent = $('fxEvery').value === '2'
+      ? 'Cada 2 semanas: la primera fecha es un día en que sí viene; desde ahí se cuenta cada 2 semanas.'
+      : '';
+  }
+  function resetFixedForm() {
+    fixedEditing = null;
+    $('fxTitle').textContent = 'Nuevo turno fijo';
+    $('fxSave').textContent = 'Agregar turno fijo';
+    $('fxCancel').hidden = true;
+    $('fxName').value = ''; $('fxPhone').value = ''; $('fxEvery').value = '1';
+    $('fxStart').value = nextDow(Number($('fxDow').value));
+    $('fxError').textContent = '';
+    fixedHint();
+  }
+  function editFixed(f) {
+    fixedEditing = f;
+    $('fxTitle').textContent = `Editar turno de ${f.name}`;
+    $('fxSave').textContent = 'Guardar cambios';
+    $('fxCancel').hidden = false;
+    $('fxDow').value = String(f.dow); $('fxTime').value = f.time;
+    $('fxName').value = f.name; $('fxPhone').value = f.phone ? phonePretty(f.phone) : '';
+    $('fxEvery').value = String(f.every); $('fxStart').value = f.start_date;
+    $('fxError').textContent = '';
+    fixedHint();
+    $('fixedForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('fxName').focus({ preventScroll: true });
+  }
+  $('fxDow').addEventListener('change', () => { $('fxStart').value = nextDow(Number($('fxDow').value)); });
+  $('fxEvery').addEventListener('change', fixedHint);
+  $('fxCancel').addEventListener('click', resetFixedForm);
+  $('fixedForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('fxError').textContent = '';
+    const body = {
+      dow: Number($('fxDow').value), time: $('fxTime').value, name: $('fxName').value,
+      phone: $('fxPhone').value, every: Number($('fxEvery').value), start_date: $('fxStart').value,
+    };
+    try {
+      if (fixedEditing) await call(`/api/admin/fixed/${fixedEditing.id}`, { method: 'PATCH', body });
+      else await call('/api/admin/fixed', { method: 'POST', body });
+      toast(fixedEditing ? 'Turno fijo actualizado' : 'Turno fijo agregado');
+      resetFixedForm();
+      loadFixed();
+    } catch (e) { $('fxError').textContent = e.message; }
+  });
+  async function removeFixed(f) {
+    if (!confirm(`¿Eliminar el turno fijo de ${f.name} (${DIAS[f.dow]} ${time12(f.time)})? Esa hora quedará libre en la web.`)) return;
+    try {
+      await call(`/api/admin/fixed/${f.id}`, { method: 'DELETE' });
+      toast('Turno fijo eliminado');
+      if (fixedEditing && fixedEditing.id === f.id) resetFixedForm();
+      loadFixed();
+    } catch (e) { toast(e.message, true); }
+  }
 
   init();
 })();

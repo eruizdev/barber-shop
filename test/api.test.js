@@ -232,6 +232,47 @@ const server = createApp().listen(0, async () => {
       assert.strictEqual(after.find((x) => x.time === next).available, false, 'la segunda hora también queda ocupada');
     }
 
+    // Turnos fijos: la web los ve como BLOQUEADA ('fixed'); el admin ve nombre y celular
+    r = await call('GET', '/api/admin/fixed', null, { auth: true });
+    assert.ok(r.json.fixed.some((f) => f.name === 'Andreus' && f.dow === 5 && f.time === '10:00'), 'turnos iniciales cargados');
+    const fxDay = cal.days.find((d) => d.open && (d.dow === 1 || d.dow === 2 || d.dow === 3)
+      && S.computeSlots(d.date, { minLeadMin: 0 }).find((x) => x.time === '19:00').available);
+    if (fxDay) {
+      const fxDate = fxDay.date;
+      const before = (await call('GET', `/api/slots?date=${fxDate}`)).json.slots.find((x) => x.time === '19:00');
+      if (before.available) {
+        r = await call('POST', '/api/admin/fixed', { dow: fxDay.dow, time: '19:00', name: 'Cliente Fijo', phone: '3001231234', every: 1, start_date: fxDate }, { auth: true });
+        assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+        const fxId = r.json.fixed.id;
+        let sl = (await call('GET', `/api/slots?date=${fxDate}`)).json.slots.find((x) => x.time === '19:00');
+        assert.strictEqual(sl.available, false);
+        assert.strictEqual(sl.reason, 'fixed');
+        r = await call('POST', '/api/appointments', { name: 'Intruso', phone: '3009990000', date: fxDate, time: '19:00', service: 'corte-premium' });
+        assert.strictEqual(r.status, 409, 'no se puede reservar encima de un turno fijo');
+        r = await call('POST', '/api/admin/appointments', { name: 'Intruso', phone: '3009990000', date: fxDate, time: '19:00' }, { auth: true });
+        assert.strictEqual(r.status, 409, 'el admin tampoco, sin liberarlo antes');
+        // calendario del admin: trae el nombre
+        r = await call('GET', `/api/admin/agenda?from=${fxDate}&to=${fxDate}`, null, { auth: true });
+        assert.ok(r.json.days[0].fixed.some((f) => f.name === 'Cliente Fijo' && f.phone === '573001231234' && !f.skipped));
+        // liberar solo ese día => la hora queda libre; volver a bloquear => ocupada
+        assert.strictEqual((await call('PUT', `/api/admin/fixed/${fxId}/skips/${fxDate}`, null, { auth: true })).status, 200);
+        sl = (await call('GET', `/api/slots?date=${fxDate}`)).json.slots.find((x) => x.time === '19:00');
+        assert.strictEqual(sl.available, true);
+        assert.strictEqual((await call('DELETE', `/api/admin/fixed/${fxId}/skips/${fxDate}`, null, { auth: true })).status, 200);
+        sl = (await call('GET', `/api/slots?date=${fxDate}`)).json.slots.find((x) => x.time === '19:00');
+        assert.strictEqual(sl.reason, 'fixed');
+        // cada 2 semanas: la semana siguiente no aplica
+        r = await call('PATCH', `/api/admin/fixed/${fxId}`, { dow: fxDay.dow, time: '19:00', name: 'Cliente Fijo', every: 2, start_date: S.addDays(fxDate, -7) }, { auth: true });
+        assert.strictEqual(r.status, 200, JSON.stringify(r.json));
+        sl = (await call('GET', `/api/slots?date=${fxDate}`)).json.slots.find((x) => x.time === '19:00');
+        assert.strictEqual(sl.available, true, 'cada 2 semanas: esta semana no le toca');
+        // fecha de otro día de la semana => error
+        r = await call('POST', '/api/admin/fixed', { dow: fxDay.dow, time: '19:00', name: 'Malo', every: 1, start_date: S.addDays(fxDate, 1) }, { auth: true });
+        assert.strictEqual(r.status, 400);
+        assert.strictEqual((await call('DELETE', `/api/admin/fixed/${fxId}`, null, { auth: true })).status, 200);
+      }
+    }
+
     // Limpieza: se borran las citas de hace más de 3 días; las de hace 3 días o menos se conservan
     const repo = require('../src/db');
     const old4 = repo.insertAppointment({ name: 'Vieja', phone: '573000000004', date: S.addDays(today, -4), time: '10:00', service: 'x' });

@@ -67,7 +67,7 @@
 .prices .wrap { width: min(1500px, 100% - 40px); }
 .svc-board { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .svc-group { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 22px 18px 18px; }
-.svc-group.is-vip { border-color: var(--gold); background: linear-gradient(160deg, #19150c 0%, var(--surface) 60%); }
+.svc-group.is-vip { border-color: var(--gold); background: linear-gradient(160deg, #2d2716 0%, var(--surface) 60%); }
 .svc-group.is-wide { grid-column: 1 / -1; border-color: var(--gold-dark); }
 .svc-group header { display: flex; align-items: center; gap: 14px; margin: 0 4px 18px; }
 .svc-group h3 { font-size: 30px; letter-spacing: 0.12em; color: var(--gold); }
@@ -80,7 +80,7 @@
 .svc {
   display: grid; grid-template-columns: 185px minmax(0, 1fr) auto; align-items: center;
   min-height: 150px; overflow: hidden;
-  background: #121212; border: 1px solid #4a3d20; border-radius: 10px;
+  background: #2c2c2c; border: 1px solid #6a5628; border-radius: 10px;
 }
 .svc-photo { width: 100%; height: 100%; object-fit: cover; align-self: stretch; }
 /* Mensualidades: sin foto, tarjeta compacta, se compran por WhatsApp */
@@ -89,7 +89,7 @@
   color: var(--gold); font-weight: 600; font-size: 15px; text-decoration: none;
   border: 1px solid var(--gold-dark); border-radius: 3px; padding: 6px 12px;
 }
-.svc-wa:hover { background: #19150c; border-color: var(--gold); }
+.svc-wa:hover { background: #2d2716; border-color: var(--gold); }
 .svc-wa svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
 .svc.no-photo .svc-price { margin: 14px 0; }
@@ -97,7 +97,7 @@
 
 .svc-body { padding: 14px 18px 14px 22px; }
 .svc-body h4 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; font-size: 24px; line-height: 1.1; margin: 0 0 6px; }
-.svc-body p { color: #c8c6c0; font-size: 15px; line-height: 1.4; }
+.svc-body p { color: #dedcd6; font-size: 15px; line-height: 1.4; }
 .svc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; min-height: 30px; }
 .svc-time {
   display: inline-flex; align-items: center; gap: 6px;
@@ -110,7 +110,7 @@
 .svc-icons .i { width: 26px; height: 26px; fill: none; stroke: var(--gold); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .svc-icons .i-brow { stroke-width: 2.6; }
 .svc-icons .i-fill path { fill: var(--gold); stroke: none; }
-.svc-icons .i-fill .cut { fill: none; stroke: #121212; stroke-width: 1.6; }
+.svc-icons .i-fill .cut { fill: none; stroke: #2c2c2c; stroke-width: 1.6; }
 
 .svc-price {
   align-self: stretch; display: flex; align-items: center; justify-content: center;
@@ -150,8 +150,8 @@
 .day.is-selected small { color: #2a2208; }
 .day.is-holiday small.tag { color: var(--gold); }
 .day.is-selected.is-holiday small.tag { color: #2a2208; }
-.day:disabled { cursor: not-allowed; background: transparent; border-style: dashed; border-color: var(--line); color: #5a5a57; }
-.day:disabled small { color: #5a5a57; }
+.day:disabled { cursor: not-allowed; background: transparent; border-style: dashed; border-color: var(--line); color: #85837d; }
+.day:disabled small { color: #85837d; }
 .day.blank { visibility: hidden; }
 
 .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 10px; }
@@ -161,10 +161,10 @@
 }
 .chip:hover:not(:disabled) { border-color: var(--gold); }
 .chip.is-selected { background: var(--gold); border-color: var(--gold); color: #0b0b0b; }
-.chip:disabled { color: #5a5a57; text-decoration: line-through; cursor: not-allowed; border-style: dashed; background: transparent; }
+.chip:disabled { color: #85837d; text-decoration: line-through; cursor: not-allowed; border-style: dashed; background: transparent; }
 .empty { color: var(--muted); }
 
-.summary { border: 1px solid var(--gold-dark); background: #14110a; padding: 14px 18px; margin-bottom: 20px; }
+.summary { border: 1px solid var(--gold-dark); background: #2d2716; padding: 14px 18px; margin-bottom: 20px; }
 .summary b { color: var(--gold); font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .form-grid .full { grid-column: 1 / -1; }
@@ -189,6 +189,9 @@
 .panel .actions { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
 .panel .actions:empty { display: none; }
 .chip small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+/* Turno fijo: rojo de bloqueo, no se tacha, dice BLOQUEADA */
+.chip.is-locked:disabled { text-decoration: none; color: #fff; border: 1px solid var(--block-line); background: var(--block); opacity: 1; }
+.chip.is-locked small { color: #fff; font-weight: 700; letter-spacing: 0.14em; }
 .chip.is-selected small { color: #2a2208; }
 .slots.days { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
 

@@ -41,6 +41,9 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 
 ## Qué puede hacer el admin
 
+- **Calendario** semanal: cada hora con el nombre y el celular de quien reservó; las citas de 2 horas ocupan 2 filas. Toca una hora libre para agendar ahí.
+- **Turnos fijos**: clientes con la misma hora cada semana o cada 2 semanas (día, hora, nombre, celular opcional, primera fecha). Esas horas quedan ocupadas solas y en la web salen como **BLOQUEADA**. Si un cliente fijo no viene un día, en el calendario se toca su turno → *Liberar solo este día*. Los turnos iniciales de viernes y sábado se cargan solos la primera vez que arranca el servidor.
+
 - Ver citas por hoy, mañana, 7/14 días, todo lo próximo o historial; filtrar por estado; buscar por nombre, celular o código.
 - **Crear** cita manual, **editar / reprogramar** (fecha, hora, nombre, celular, nota), marcar **completada** o **no asistió**, **cancelar** (libera la hora), **reactivar**, **eliminar**.
 - Botón **WhatsApp** por cita, con mensaje listo para avisar al cliente.

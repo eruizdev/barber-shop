@@ -131,10 +131,10 @@
       $('slots').replaceChildren(...r.slots.map((s) => {
         const mine = s.time === r.current;
         return h('button', {
-          type: 'button', class: 'chip', 'data-time': s.time,
+          type: 'button', class: 'chip' + (s.reason === 'fixed' ? ' is-locked' : ''), 'data-time': s.time,
           disabled: !s.available || mine,
           onclick: () => pickTime(s.time),
-        }, time12(s.time), mine ? h('small', {}, 'tu hora') : null);
+        }, time12(s.time), mine ? h('small', {}, 'tu hora') : (s.reason === 'fixed' ? h('small', {}, 'BLOQUEADA') : null));
       }));
       show('slotsEmpty', !r.slots.some((s) => s.available && s.time !== r.current));
     } catch (e) {

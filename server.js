@@ -91,7 +91,7 @@ function createApp() {
     for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) {
       const info = S.dayInfo(d);
       const slots = S.computeSlots(d, {
-        busyTimes: repo.activeTimes(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin, need,
+        busyTimes: repo.busyFor(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin, need,
       });
       days.push({
         date: d, dow: info.dow, open: info.open, holiday: info.holiday,
@@ -120,7 +120,7 @@ function createApp() {
       assertInWindow(date);
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.activeTimes(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
+        busyTimes: repo.busyFor(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
         need: needFrom(req.query),
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
@@ -134,7 +134,7 @@ function createApp() {
 
   const book = repo.db.transaction((data) => {
     const slot = S.computeSlots(data.date, {
-      busyTimes: repo.activeTimes(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
+      busyTimes: repo.busyFor(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
       need: data.slots,
     }).find((s) => s.time === data.time);
     if (!slot) throw bad('Esa hora no hace parte del horario');
@@ -216,7 +216,7 @@ function createApp() {
       const editing = ex ? repo.getAppointment(ex) : null;
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.activeTimes(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
+        busyTimes: repo.busyFor(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
         need: editing ? editing.slots : 1,
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
@@ -253,7 +253,7 @@ function createApp() {
     try {
       const f = readApptFields(req.body || {}, { partial: false });
       const create = repo.db.transaction(() => {
-        if (repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita en ese horario');
+        if (repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
         return repo.insertAppointment({ ...f, status: 'confirmed', source: 'admin' });
       });
       const appt = create();
@@ -273,7 +273,7 @@ function createApp() {
         const moved = next.date !== before.date || next.time !== before.time;
         const reactivated = before.status === 'cancelled' && becomesActive;
         if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id, before.slots)) {
-          throw new HttpError(409, 'Ya hay una cita en ese horario');
+          throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
         }
         const after = repo.updateAppointment(id, { ...f, resetReminder: moved });
         return { before, after, moved };
@@ -319,6 +319,94 @@ function createApp() {
       if (!blk) throw new HttpError(404, 'Bloqueo no encontrado');
       repo.deleteBlock(blk.id);
       res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  // ---------- Admin: turnos fijos ----------
+  function readFixed(b) {
+    const dow = Number(b.dow);
+    if (!Number.isInteger(dow) || dow < 0 || dow > 6) throw bad('Día no válido');
+    if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
+    const name = cleanText(b.name, 60);
+    if (name.length < 2) throw bad('Escribe el nombre del cliente');
+    let phone = '';
+    if (b.phone && String(b.phone).replace(/\D/g, '')) {
+      phone = normalizePhone(b.phone, { lenient: true });
+      if (!phone) throw bad('Celular no válido');
+    }
+    const every = Number(b.every) === 2 ? 2 : 1;
+    if (!S.isDateStr(b.start_date)) throw bad('Elige la primera fecha');
+    if (S.dayOfWeek(b.start_date) !== dow) throw bad('La primera fecha tiene que caer en el mismo día de la semana');
+    return { dow, time: b.time, name, phone, every, start_date: b.start_date };
+  }
+
+  admin.get('/fixed', (req, res) => res.json({ fixed: repo.listFixed() }));
+
+  admin.post('/fixed', (req, res, next) => {
+    try { res.status(201).json({ fixed: repo.addFixed(readFixed(req.body || {})) }); } catch (e) { next(e); }
+  });
+
+  admin.patch('/fixed/:id', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!repo.getFixed(id)) throw new HttpError(404, 'Turno fijo no encontrado');
+      res.json({ fixed: repo.updateFixed(id, readFixed(req.body || {})) });
+    } catch (e) { next(e); }
+  });
+
+  admin.delete('/fixed/:id', (req, res, next) => {
+    try {
+      if (!repo.deleteFixed(Number(req.params.id))) throw new HttpError(404, 'Turno fijo no encontrado');
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  // Liberar (PUT) o volver a bloquear (DELETE) un turno fijo solo en una fecha
+  admin.put('/fixed/:id/skips/:date', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const { date } = req.params;
+      if (!S.isDateStr(date)) throw bad('Fecha no válida');
+      if (!repo.fixedFor(date, { includeSkipped: true }).some((f) => f.id === id)) {
+        throw bad('Ese turno fijo no toca en esa fecha');
+      }
+      repo.skipFixed(id, date);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+  admin.delete('/fixed/:id/skips/:date', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const { date } = req.params;
+      if (!S.isDateStr(date)) throw bad('Fecha no válida');
+      const f = repo.fixedFor(date, { includeSkipped: true }).find((x) => x.id === id);
+      if (!f) throw bad('Ese turno fijo no toca en esa fecha');
+      if (f.skipped && repo.hasConflict(date, f.time)) {
+        throw new HttpError(409, 'Esa hora ya la tomó otra persona; cancela esa cita primero');
+      }
+      repo.unskipFixed(id, date);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  // Calendario del admin: por cada día, horario, citas activas y turnos fijos (con nombres)
+  admin.get('/agenda', (req, res, next) => {
+    try {
+      const { from, to } = req.query;
+      if (!S.isDateStr(from) || !S.isDateStr(to) || to < from || S.daysBetween(from, to) > 31) {
+        throw bad('Rango de fechas no válido');
+      }
+      const appts = repo.listAppointments({ from, to, status: 'active' });
+      const days = [];
+      for (let d = from; d <= to; d = S.addDays(d, 1)) {
+        const info = S.dayInfo(d);
+        days.push({
+          date: d, dow: info.dow, open: info.open, holiday: info.holiday, ranges: info.ranges,
+          appointments: appts.filter((a) => a.date === d),
+          fixed: repo.fixedFor(d, { includeSkipped: true }),
+        });
+      }
+      res.json({ days });
     } catch (e) { next(e); }
   });
 

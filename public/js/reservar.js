@@ -141,11 +141,11 @@
     const box = $('slots');
     box.replaceChildren(...slots.map((s) => h('button', {
       type: 'button',
-      class: 'chip' + (s.time === selTime ? ' is-selected' : ''),
+      class: 'chip' + (s.time === selTime ? ' is-selected' : '') + (s.reason === 'fixed' ? ' is-locked' : ''),
       disabled: !s.available,
       title: s.reason === 'short' ? 'No alcanza: este servicio dura 2 horas' : '',
       onclick: () => pickTime(s.time, slots),
-    }, time12(s.time))));
+    }, time12(s.time), s.reason === 'fixed' ? h('small', {}, 'BLOQUEADA') : null)));
     $('slotsEmpty').hidden = slots.some((s) => s.available);
   }
 

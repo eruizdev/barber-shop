@@ -90,7 +90,8 @@ const slotsForMinutes = (minutes) => (minutes > 70 ? 2 : 1);
 
 /**
  * Estado de cada hora de inicio de un día.
- * busyTimes: citas activas, como 'HH:MM' (1 hora) o { time, slots } (slots = horas que ocupa).
+ * busyTimes: citas activas, como 'HH:MM' (1 hora) o { time, slots, fixed } (slots = horas que ocupa;
+ *   fixed = turno fijo, sale con reason 'fixed').
  * blocks: [{time|null}]. need: horas seguidas que necesita la nueva cita (1 o 2).
  * Una hora solo está libre si las `need` horas caben dentro del mismo tramo del horario
  * (ej. lunes 10:00 no sirve para 2 horas porque a las 11:00 se cierra).
@@ -98,9 +99,9 @@ const slotsForMinutes = (minutes) => (minutes > 70 ? 2 : 1);
 function computeSlots(dateStr, { busyTimes = [], blocks = [], nowMs = Date.now(), minLeadMin = 60, need = 1 } = {}) {
   const info = dayInfo(dateStr);
   const wholeDayBlocked = blocks.some((b) => !b.time);
-  const interval = (time, slots = 1) => ({ s: toMin(time), e: toMin(time) + slots * SLOT_MIN });
+  const interval = (time, slots = 1, fixed = false) => ({ s: toMin(time), e: toMin(time) + slots * SLOT_MIN, fixed });
   const blocked = blocks.filter((b) => b.time).map((b) => interval(b.time));
-  const busy = busyTimes.map((b) => (typeof b === 'string' ? interval(b) : interval(b.time, b.slots || 1)));
+  const busy = busyTimes.map((b) => (typeof b === 'string' ? interval(b) : interval(b.time, b.slots || 1, Boolean(b.fixed))));
   const limit = nowMs + minLeadMin * 60000;
 
   return info.starts.map((time) => {
@@ -111,6 +112,7 @@ function computeSlots(dateStr, { busyTimes = [], blocks = [], nowMs = Date.now()
     if (wholeDayBlocked) reason = 'blocked';
     else if (startMs(dateStr, time) < limit) reason = 'past';
     else if (!info.ranges.some(([a, b]) => s >= a && e <= b)) reason = 'short'; // no alcanza antes del cierre
+    else if (busy.some((x) => x.fixed && overlaps(x))) reason = 'fixed'; // turno fijo: la web muestra "BLOQUEADA"
     else if (busy.some(overlaps)) reason = 'taken';
     else if (blocked.some(overlaps)) reason = 'blocked';
     return { time, available: !reason, reason };

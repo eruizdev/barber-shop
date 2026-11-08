@@ -41,7 +41,7 @@ function assertBookableDate(date) {
 
 function slotsFor(date, appt) {
   return S.computeSlots(date, {
-    busyTimes: repo.activeTimes(date, appt.id), // su propia hora no cuenta como ocupada
+    busyTimes: repo.busyFor(date, appt.id), // su propia hora no cuenta como ocupada
     blocks: repo.blocksFor(date),
     minLeadMin: cfg.minLeadMin,
     need: appt.slots || 1,

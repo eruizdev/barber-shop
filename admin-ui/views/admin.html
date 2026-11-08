@@ -8,7 +8,7 @@
   <link rel="icon" href="/img/logo-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/admin/assets/admin.css">
 </head>
@@ -44,8 +44,14 @@
     </header>
 
     <main class="wrap">
-      <!-- Citas -->
-      <section id="tab-citas">
+      <nav class="views" id="views" aria-label="Vistas">
+        <button type="button" class="view-btn is-active" data-view="lista">Lista</button>
+        <button type="button" class="view-btn" data-view="calendario">Calendario</button>
+        <button type="button" class="view-btn" data-view="fijos">Turnos fijos</button>
+      </nav>
+
+      <!-- Lista de citas -->
+      <section id="view-lista">
         <div class="toolbar">
           <div class="presets" id="presets">
             <button type="button" class="chip-btn" data-preset="hoy">Hoy</button>
@@ -74,6 +80,54 @@
         <div id="list"></div>
       </section>
 
+      <!-- Calendario semanal -->
+      <section id="view-calendario" hidden>
+        <div class="cal-bar">
+          <button type="button" class="btn btn-sm btn-outline" id="calPrev">‹ Anterior</button>
+          <button type="button" class="btn btn-sm btn-outline" id="calToday">Esta semana</button>
+          <button type="button" class="btn btn-sm btn-outline" id="calNext">Siguiente ›</button>
+          <h2 id="calLabel"></h2>
+        </div>
+        <div class="cal-legend">
+          <span><i class="lg-appt"></i>Cita reservada</span>
+          <span><i class="lg-fixed"></i>Turno fijo (en la web sale BLOQUEADA)</span>
+          <span><i class="lg-free"></i>Libre: toca para agendar</span>
+          <span><i class="lg-closed"></i>Cerrado</span>
+        </div>
+        <div class="wk-scroll"><div class="wk" id="wk"></div></div>
+      </section>
+
+      <!-- Turnos fijos -->
+      <section id="view-fijos" hidden>
+        <p class="muted intro">Clientes que tienen siempre la misma hora. Esas horas quedan ocupadas solas y en la web salen como <b>BLOQUEADA</b>. Si un día no viene, en el calendario toca su turno y elige “Liberar solo este día”.</p>
+        <form class="fixed-form" id="fixedForm" novalidate>
+          <h3 id="fxTitle">Nuevo turno fijo</h3>
+          <div class="fx-grid">
+            <div class="field"><label for="fxDow">Día</label>
+              <select id="fxDow">
+                <option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option>
+                <option value="4">Jueves</option><option value="5" selected>Viernes</option><option value="6">Sábado</option>
+                <option value="0">Domingo</option>
+              </select>
+            </div>
+            <div class="field"><label for="fxTime">Hora</label><select id="fxTime"><option value="08:00">8:00 a. m.</option><option value="09:00">9:00 a. m.</option><option value="10:00">10:00 a. m.</option><option value="11:00">11:00 a. m.</option><option value="12:00">12:00 p. m.</option><option value="13:00">1:00 p. m.</option><option value="14:00">2:00 p. m.</option><option value="15:00">3:00 p. m.</option><option value="16:00">4:00 p. m.</option><option value="17:00">5:00 p. m.</option><option value="18:00">6:00 p. m.</option><option value="19:00">7:00 p. m.</option></select></div>
+            <div class="field"><label for="fxName">Nombre</label><input id="fxName" maxlength="60"></div>
+            <div class="field"><label for="fxPhone">Celular (opcional)</label><input id="fxPhone" type="tel" inputmode="numeric" maxlength="20"></div>
+            <div class="field"><label for="fxEvery">Frecuencia</label>
+              <select id="fxEvery"><option value="1">Cada semana</option><option value="2">Cada 2 semanas</option></select>
+            </div>
+            <div class="field"><label for="fxStart">Primera fecha</label><input id="fxStart" type="date"></div>
+          </div>
+          <p class="hint" id="fxHint"></p>
+          <p class="error" id="fxError" role="alert"></p>
+          <div class="fx-actions">
+            <button type="submit" class="btn" id="fxSave">Agregar turno fijo</button>
+            <button type="button" class="btn btn-outline" id="fxCancel" hidden>Cancelar edición</button>
+          </div>
+        </form>
+        <div id="fixedList"></div>
+      </section>
+
     </main>
   </div>
 
@@ -99,6 +153,15 @@
         <button type="submit" class="btn" id="mSave">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Turno fijo tocado en el calendario -->
+  <dialog id="fixedModal">
+    <div class="fm">
+      <h2 id="fmTitle"></h2>
+      <p class="muted" id="fmInfo"></p>
+      <div class="fm-actions" id="fmActions"></div>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

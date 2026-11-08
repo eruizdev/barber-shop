@@ -91,6 +91,11 @@ let one = S.computeSlots('2026-11-10', { nowMs: now, busyTimes: [{ time: '15:00'
 assert.strictEqual(st(one, '15:00').reason, 'taken');
 assert.strictEqual(st(one, '16:00').reason, 'taken');
 assert.strictEqual(st(one, '17:00').available, true);
+// Turno fijo: sale como 'fixed' (la web muestra BLOQUEADA)
+one = S.computeSlots('2026-11-10', { nowMs: now, busyTimes: [{ time: '17:00', slots: 1, fixed: true }] });
+assert.strictEqual(st(one, '17:00').reason, 'fixed');
+two = S.computeSlots('2026-11-10', { nowMs: now, need: 2, busyTimes: [{ time: '17:00', slots: 1, fixed: true }] });
+assert.strictEqual(st(two, '16:00').reason, 'fixed'); // 2 horas desde las 16 pisarían el turno fijo
 // Para 2 horas, las 14:00 chocan con la de las 15:00
 two = S.computeSlots('2026-11-10', { nowMs: now, need: 2, busyTimes: ['15:00'] });
 assert.strictEqual(st(two, '14:00').reason, 'taken');
