@@ -190,3 +190,32 @@ dialog h2 { font-size: 24px; margin-bottom: 18px; }
   .wk-daybtn small { font-size: 9px; }
   .who span { display: none; }
 }
+
+/* ---------- Panel en celular: más compacto ---------- */
+@media (max-width: 720px) {
+  main.wrap { padding: 14px 0 60px; }
+  .topbar .wrap { padding: 10px 0; }
+  .who b { font-size: 16px; }
+  .views { margin-bottom: 12px; }
+  .toolbar { padding: 12px; }
+  .presets { gap: 6px; margin-bottom: 10px; }
+  .chip-btn { padding: 7px 11px; font-size: 14px; }
+  .filters .field { min-width: 0; flex: 1 1 140px; }
+  .day-head { font-size: 16px; }
+  .appt { padding: 12px; gap: 8px; }
+  .appt .time { font-size: 20px; }
+  .appt .name { font-size: 16px; }
+  .appt .meta, .appt .service, .appt .note { font-size: 14px; }
+  .actions .btn { padding: 7px 10px; font-size: 12px; }
+  dialog form { padding: 18px 14px; }
+  dialog h2 { font-size: 20px; margin-bottom: 12px; }
+  .fixed-form { padding: 14px 12px; }
+  .fixed-form h3 { font-size: 17px; }
+  .fx-row { padding: 10px 12px; }
+  .fx-row .time { font-size: 19px; }
+  .fx-row .name { font-size: 15.5px; }
+  .cal-legend { font-size: 13px; gap: 4px 12px; }
+  .cal-bar h2 { font-size: 17px; }
+  .login-box { padding: 24px 18px; }
+  .login-box h1 { font-size: 24px; }
+}
