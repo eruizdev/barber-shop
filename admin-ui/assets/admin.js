@@ -271,6 +271,10 @@
   const weeksBetween = (a, b) => Math.round((SB.parse(b) - SB.parse(a)) / 86400000) / 7;
   const freqText = (f) => (f.every === 2 ? 'Cada 2 semanas' : 'Cada semana');
   let weekStart = '';
+  let weekDays = [];
+  let dayIdx = -1; // en teléfono se ve un día a la vez
+  const narrow = window.matchMedia('(max-width: 700px)');
+  narrow.addEventListener('change', () => { if (weekDays.length) renderWeek(weekDays); });
 
   async function loadWeek() {
     if (!weekStart) weekStart = startWeek();
@@ -278,14 +282,35 @@
     $('calLabel').textContent = `${SB.shortDate(weekStart)} – ${SB.shortDate(to)}`;
     let data;
     try { data = await call(`/api/admin/agenda?from=${weekStart}&to=${to}`); } catch (e) { toast(e.message, true); return; }
-    renderWeek(data.days);
+    weekDays = data.days;
+    const t = weekDays.findIndex((d) => d.date === today);
+    if (dayIdx < 0 || dayIdx > 6) dayIdx = t >= 0 && weekDays[t].open ? t : 0;
+    renderWeek(weekDays);
   }
-  $('calPrev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); loadWeek(); });
-  $('calNext').addEventListener('click', () => { weekStart = addDays(weekStart, 7); loadWeek(); });
-  $('calToday').addEventListener('click', () => { weekStart = startWeek(); loadWeek(); });
+  $('calPrev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); dayIdx = 0; loadWeek(); });
+  $('calNext').addEventListener('click', () => { weekStart = addDays(weekStart, 7); dayIdx = 0; loadWeek(); });
+  $('calToday').addEventListener('click', () => { weekStart = startWeek(); dayIdx = -1; loadWeek(); });
 
-  function renderWeek(days) {
+  // Teléfono: botones para elegir el día que se ve
+  function renderDayPicker(days) {
+    const box = $('wkDays');
+    if (!narrow.matches) { box.replaceChildren(); box.hidden = true; return; }
+    box.hidden = false;
+    box.replaceChildren(...days.map((d, i) => {
+      const busy = d.appointments.length + d.fixed.filter((f) => !f.skipped).length;
+      return h('button', {
+        type: 'button', class: 'wk-daybtn' + (i === dayIdx ? ' is-active' : '') + (d.date === today ? ' is-today' : ''),
+        onclick: () => { dayIdx = i; renderWeek(weekDays); },
+      }, h('b', {}, DIAS[d.dow].slice(0, 3)), h('span', {}, SB.dayNum(d.date)),
+      h('small', {}, d.open ? (busy ? `${busy} ocup.` : 'libre') : 'cerrado'));
+    }));
+  }
+
+  function renderWeek(allDays) {
+    renderDayPicker(allDays);
+    const days = narrow.matches ? [allDays[dayIdx]] : allDays;
     const wk = $('wk');
+    wk.classList.toggle('is-day', narrow.matches);
     const cells = [h('div', { class: 'wk-corner' })];
     for (let r = 0; r < ROWS; r++) {
       cells.push(h('div', { class: 'wk-hour', style: `grid-row:${r + 2}` }, time12(hhmm(FIRST + r * 60))));

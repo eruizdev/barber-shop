@@ -5,7 +5,9 @@
 .site-header .wrap { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .brand img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--gold-dark); }
-.brand span { font-family: var(--font-head); font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+.brand span { font-family: var(--font-head); font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+.site-header .wrap { gap: 12px; }
+.site-header .btn { white-space: nowrap; }
 
 /* Hero */
 .hero { padding: 48px 0 64px; }
@@ -64,63 +66,62 @@
 .guards li:nth-child(5) { border-color: #a5853c; }
 .guards li::before { content: '#'; opacity: 0.6; }
 
-.prices .wrap { width: min(1500px, 100% - 40px); }
-.svc-board { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.svc-group { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 22px 18px 18px; }
+.svc-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.svc-group { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 16px 14px 14px; }
 .svc-group.is-vip { border-color: var(--gold); background: linear-gradient(160deg, #2d2716 0%, var(--surface) 60%); }
 .svc-group.is-wide { grid-column: 1 / -1; border-color: var(--gold-dark); }
-.svc-group header { display: flex; align-items: center; gap: 14px; margin: 0 4px 18px; }
-.svc-group h3 { font-size: 30px; letter-spacing: 0.12em; color: var(--gold); }
-.ico { width: 32px; height: 32px; flex: none; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.svc-group header { display: flex; align-items: center; gap: 10px; margin: 0 2px 12px; }
+.svc-group h3 { font-size: 24px; letter-spacing: 0.12em; color: var(--gold); }
+.ico { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-.svc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; grid-auto-rows: 1fr; }
+.svc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-auto-rows: 1fr; }
 .svc-group.is-wide .svc-list { grid-template-columns: repeat(2, 1fr); }
 
 /* Todas las tarjetas iguales: foto | texto | precio */
 .svc {
-  display: grid; grid-template-columns: 185px minmax(0, 1fr) auto; align-items: center;
-  min-height: 150px; overflow: hidden;
-  background: #2c2c2c; border: 1px solid #6a5628; border-radius: 10px;
+  display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center;
+  min-height: 104px; overflow: hidden;
+  background: #2c2c2c; border: 1px solid #6a5628; border-radius: 8px;
 }
 .svc-photo { width: 100%; height: 100%; object-fit: cover; align-self: stretch; }
 /* Mensualidades: sin foto, tarjeta compacta, se compran por WhatsApp */
 .svc-wa {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
-  color: var(--gold); font-weight: 600; font-size: 15px; text-decoration: none;
-  border: 1px solid var(--gold-dark); border-radius: 3px; padding: 6px 12px;
+  color: var(--gold); font-weight: 600; font-size: 13px; text-decoration: none;
+  border: 1px solid var(--gold-dark); border-radius: 3px; padding: 4px 10px;
 }
 .svc-wa:hover { background: #2d2716; border-color: var(--gold); }
 .svc-wa svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
-.svc.no-photo .svc-price { margin: 14px 0; }
+.svc.no-photo .svc-price { margin: 12px 0; }
 .svc-group.is-wide .svc-list:has(.no-photo) { grid-auto-rows: auto; }
 
-.svc-body { padding: 14px 18px 14px 22px; }
-.svc-body h4 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; font-size: 24px; line-height: 1.1; margin: 0 0 6px; }
-.svc-body p { color: #dedcd6; font-size: 15px; line-height: 1.4; }
-.svc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; min-height: 30px; }
+.svc-body { padding: 10px 12px 10px 14px; }
+.svc-body h4 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; font-size: 19px; line-height: 1.1; margin: 0 0 3px; }
+.svc-body p { color: #dedcd6; font-size: 13.5px; line-height: 1.35; }
+.svc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 7px; min-height: 24px; }
 .svc-time {
   display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--line-2); border-radius: 3px; padding: 3px 9px; font-weight: 600; font-size: 14px;
+  border: 1px solid var(--line-2); border-radius: 3px; padding: 1px 7px; font-weight: 600; font-size: 12.5px;
 }
-.clock { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.clock { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 
 .svc-icons { display: flex; align-items: center; gap: 3px; color: var(--gold); }
-.svc-icons b { font-weight: 400; font-size: 13px; }
-.svc-icons .i { width: 26px; height: 26px; fill: none; stroke: var(--gold); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.svc-icons b { font-weight: 400; font-size: 11px; }
+.svc-icons .i { width: 20px; height: 20px; fill: none; stroke: var(--gold); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .svc-icons .i-brow { stroke-width: 2.6; }
 .svc-icons .i-fill path { fill: var(--gold); stroke: none; }
 .svc-icons .i-fill .cut { fill: none; stroke: #2c2c2c; stroke-width: 1.6; }
 
 .svc-price {
   align-self: stretch; display: flex; align-items: center; justify-content: center;
-  border-left: 1px solid var(--line-2); margin: 20px 0; padding: 0 22px; min-width: 140px;
-  font-family: var(--font-head); font-weight: 500; font-size: 32px; color: var(--gold); white-space: nowrap;
+  border-left: 1px solid var(--line-2); margin: 16px 0; padding: 0 14px; min-width: 96px;
+  font-family: var(--font-head); font-weight: 500; font-size: 25px; color: var(--gold); white-space: nowrap;
 }
 
 /* Pantallas medianas: una columna */
-@media (max-width: 1400px) {
-  .svc-board { grid-template-columns: 1fr; max-width: 820px; }
+@media (max-width: 960px) {
+  .svc-board { grid-template-columns: 1fr; }
   .svc-group.is-wide { grid-column: auto; }
   .svc-group.is-wide .svc-list { grid-template-columns: 1fr; }
 }
@@ -170,7 +171,7 @@
 .form-grid .full { grid-column: 1 / -1; }
 .hint { color: var(--gold); font-size: 15px; margin-top: 4px; }
 .check { display: flex; align-items: center; gap: 10px; margin: -4px 0 16px; cursor: pointer; font-size: 16px; }
-.check input { width: 20px; height: 20px; accent-color: var(--gold); }
+.check input { width: 24px; height: 24px; flex: none; accent-color: var(--gold); }
 
 .success { text-align: center; padding: 40px 24px; }
 .success h2 { font-size: 34px; margin-bottom: 12px; }
@@ -197,17 +198,17 @@
 
 @media (max-width: 760px) {
   .svc-group { padding: 18px 12px; }
-  .svc { grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto auto; min-height: 140px; }
+  .svc { grid-template-columns: 104px minmax(0, 1fr); grid-template-rows: auto auto; min-height: 118px; }
   .svc-photo { grid-row: 1 / 3; }
   .svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; min-height: 0; }
   .svc.no-photo .svc-body { padding: 14px; }
   .svc.no-photo .svc-price { grid-column: 2; grid-row: 1; padding: 14px; align-items: center; }
   .svc-body { padding: 12px 12px 0; }
-  .svc-body h4 { font-size: 19px; }
+  .svc-body h4 { font-size: 18px; }
   .svc-body p { font-size: 14px; }
   .svc-meta { gap: 6px 10px; margin-top: 8px; }
   .svc-icons .i { width: 20px; height: 20px; }
-  .svc-price { grid-column: 2; border-left: 0; margin: 0; padding: 6px 12px 12px; min-width: 0; font-size: 26px; justify-content: flex-start; }
+  .svc-price { grid-column: 2; border-left: 0; margin: 0; padding: 6px 12px 12px; min-width: 0; font-size: 22px; justify-content: flex-start; }
   .hero { padding: 28px 0 44px; }
   .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
   .nav .btn-outline { display: none; }
@@ -219,4 +220,37 @@
   .day b { font-size: 19px; }
   .day small { font-size: 10px; }
   .cal { gap: 4px; }
+}
+
+/* ---------- Teléfonos pequeños (iPhone SE, Android compactos: 320–420 px) ---------- */
+@media (max-width: 420px) {
+  .wrap { width: calc(100% - 28px); }
+  .brand { gap: 8px; }
+  .brand img { width: 32px; height: 32px; }
+  .brand span { font-size: 17px; letter-spacing: 0.06em; }
+  .site-header .btn-sm { padding: 8px 12px; font-size: 13px; letter-spacing: 0.08em; }
+  .hero h1 { font-size: clamp(52px, 17vw, 72px); }
+  .hero .lead { font-size: 18px; }
+  .section { padding: 40px 0; }
+  .section h2 { font-size: 26px; }
+  /* tarjetas de servicios: foto más angosta para que el texto respire */
+  .svc { grid-template-columns: 88px minmax(0, 1fr); min-height: 112px; }
+  .svc-body { padding: 10px 10px 0; }
+  .svc-body h4 { font-size: 17px; }
+  .svc-price { padding: 4px 10px 10px; font-size: 21px; }
+  .svc-icons .i { width: 18px; height: 18px; }
+  /* mensualidades: precio debajo, botón de WhatsApp a lo ancho */
+  .svc.no-photo { grid-template-columns: 1fr; }
+  .svc.no-photo .svc-price { grid-column: 1; grid-row: auto; padding: 0 14px 14px; justify-content: flex-start; }
+  .svc-wa { display: flex; justify-content: center; text-align: center; font-size: 13px; padding: 8px 10px; }
+  /* reservar */
+  .book { padding: 24px 0 60px; }
+  .panel > h2 { flex-wrap: wrap; row-gap: 4px; }
+  .panel > h2 small { flex-basis: 100%; padding-left: 40px; }
+  .cal { gap: 3px; }
+  .day { min-height: 56px; padding: 4px 1px; }
+  .day b { font-size: 17px; }
+  .day small { font-size: 9px; }
+  .slots { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .notice { font-size: 15px; padding: 12px 14px; }
 }
