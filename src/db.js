@@ -2,14 +2,27 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite'); // SQLite incluido en Node (no requiere compilar)
 const cfg = require('./config');
-const { toMin, SLOT_MIN } = require('./schedule');
+const { toMin, SLOT_MIN, dayOfWeek, daysBetween } = require('./schedule');
 
 fs.mkdirSync(path.dirname(cfg.dbPath), { recursive: true });
-const db = new Database(cfg.dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(cfg.dbPath);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+
+/** Igual que better-sqlite3: db.transaction(fn) devuelve una función que corre fn dentro de BEGIN/COMMIT. */
+db.transaction = (fn) => (...args) => {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = fn(...args);
+    db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+};
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS appointments (
@@ -42,15 +55,81 @@ CREATE TABLE IF NOT EXISTS blocks (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_blocks_date ON blocks(date);
+`);
 
-CREATE TABLE IF NOT EXISTS audit (
+// Ya no se guarda historial de actividad (para no llenar la base de datos).
+db.exec('DROP TABLE IF EXISTS audit');
+
+// Token privado por cita: va en el link que recibe el cliente (/cita/<token>)
+// para ver, reprogramar o cancelar su cita sin crear cuenta.
+const newToken = () => crypto.randomBytes(24).toString('base64url');
+
+// Migración: bases creadas antes de existir manage_token
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'manage_token')) {
+  db.exec('ALTER TABLE appointments ADD COLUMN manage_token TEXT');
+}
+{
+  const missing = db.prepare('SELECT id FROM appointments WHERE manage_token IS NULL').all();
+  const set = db.prepare('UPDATE appointments SET manage_token = ? WHERE id = ?');
+  for (const { id } of missing) set.run(newToken(), id);
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_token ON appointments(manage_token)');
+
+// Migración: servicio elegido al reservar (ej. "Corte premium · $24.000")
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'service')) {
+  db.exec("ALTER TABLE appointments ADD COLUMN service TEXT NOT NULL DEFAULT ''");
+}
+// Migración: horas que ocupa la cita (2 si el servicio dura más de 1 h 10 min)
+if (!db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('appointments', 'slots')) {
+  db.exec('ALTER TABLE appointments ADD COLUMN slots INTEGER NOT NULL DEFAULT 1');
+}
+
+// ---------- Turnos fijos ----------
+// Clientes que tienen siempre la misma hora: cada semana o cada 2 semanas.
+// En la web sale "BLOQUEADA"; en el panel admin se ve el nombre y el celular.
+// fixed_skips: días sueltos en que el admin libera un turno fijo (ej. el cliente no viene).
+const hadFixed = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'fixed_slots'").get());
+db.exec(`
+CREATE TABLE IF NOT EXISTS fixed_slots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  admin TEXT NOT NULL,
-  action TEXT NOT NULL,
-  detail TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  dow INTEGER NOT NULL CHECK (dow BETWEEN 0 AND 6),   -- 0 domingo ... 6 sábado
+  time TEXT NOT NULL,                                 -- HH:MM
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL DEFAULT '',
+  every INTEGER NOT NULL DEFAULT 1 CHECK (every IN (1, 2)), -- cada 1 o 2 semanas
+  start_date TEXT NOT NULL                            -- primera fecha (mismo día de la semana)
+);
+CREATE TABLE IF NOT EXISTS fixed_skips (
+  fixed_id INTEGER NOT NULL REFERENCES fixed_slots(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  PRIMARY KEY (fixed_id, date)
 );
 `);
+// Turnos fijos iniciales (solo la primera vez que se crea la tabla)
+if (!hadFixed) {
+  const FRI = '2026-11-06'; const SAT = '2026-11-07'; const SAT_2W = '2026-11-14';
+  const seed = [
+    [5, '09:00', 'Hijo de Mariana Jorge', 1, FRI],
+    [5, '10:00', 'Andreus', 1, FRI],
+    [5, '11:00', 'Andreus', 1, FRI],
+    [5, '13:00', 'Correa', 1, FRI],
+    [5, '15:00', 'Esteban', 1, FRI],
+    [5, '17:00', 'Camilo Parra', 1, FRI],
+    [5, '18:00', 'Juan Alzate Osorio', 1, FRI],
+    [5, '19:00', 'Coscu', 1, FRI],
+    [6, '09:00', 'Miguel', 1, SAT],
+    [6, '10:00', 'Zúñiga', 2, SAT_2W],
+    [6, '12:00', 'Felipe G', 2, SAT_2W],
+    [6, '14:00', 'Edward', 1, SAT],
+    [6, '15:00', 'Mauricio Buitrago', 1, SAT],
+    [6, '16:00', 'Iván', 1, SAT],
+    [6, '17:00', 'Jorge', 1, SAT],
+    [6, '18:00', 'Santi', 1, SAT],
+    [6, '19:00', 'Yei', 1, SAT],
+  ];
+  const ins = db.prepare('INSERT INTO fixed_slots (dow, time, name, every, start_date) VALUES (?, ?, ?, ?, ?)');
+  for (const r of seed) ins.run(...r);
+}
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode() {
@@ -63,39 +142,78 @@ function newCode() {
 }
 
 const stmt = {
-  activeTimes: db.prepare(`SELECT time FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
+  activeTimes: db.prepare(`SELECT time, slots FROM appointments WHERE date = @date AND status <> 'cancelled' AND id <> @ex`),
   blocksFor: db.prepare('SELECT id, date, time, reason FROM blocks WHERE date = ?'),
   countFuturePhone: db.prepare(`SELECT COUNT(*) AS c FROM appointments WHERE phone = ? AND status = 'confirmed' AND date >= ?`),
-  insert: db.prepare(`INSERT INTO appointments (code, name, phone, note, date, time, status, source)
-                      VALUES (@code, @name, @phone, @note, @date, @time, @status, @source)`),
+  insert: db.prepare(`INSERT INTO appointments (code, manage_token, name, phone, service, slots, note, date, time, status, source)
+                      VALUES (@code, @token, @name, @phone, @service, @slots, @note, @date, @time, @status, @source)`),
   get: db.prepare('SELECT * FROM appointments WHERE id = ?'),
+  getByToken: db.prepare('SELECT * FROM appointments WHERE manage_token = ?'),
   del: db.prepare('DELETE FROM appointments WHERE id = ?'),
   addBlock: db.prepare('INSERT INTO blocks (date, time, reason) VALUES (?, ?, ?)'),
   getBlock: db.prepare('SELECT * FROM blocks WHERE id = ?'),
   delBlock: db.prepare('DELETE FROM blocks WHERE id = ?'),
+  purgeAppts: db.prepare('DELETE FROM appointments WHERE date < ?'),
+  purgeBlocks: db.prepare('DELETE FROM blocks WHERE date < ?'),
+  purgeSkips: db.prepare('DELETE FROM fixed_skips WHERE date < ?'),
+  fixedByDow: db.prepare(`SELECT f.*, EXISTS (SELECT 1 FROM fixed_skips s WHERE s.fixed_id = f.id AND s.date = @date) AS skipped
+                          FROM fixed_slots f WHERE f.dow = @dow AND f.start_date <= @date ORDER BY f.time`),
+  listFixed: db.prepare('SELECT * FROM fixed_slots ORDER BY dow, time'),
+  getFixed: db.prepare('SELECT * FROM fixed_slots WHERE id = ?'),
+  addFixed: db.prepare(`INSERT INTO fixed_slots (dow, time, name, phone, every, start_date)
+                        VALUES (@dow, @time, @name, @phone, @every, @start_date)`),
+  updFixed: db.prepare(`UPDATE fixed_slots SET dow = @dow, time = @time, name = @name, phone = @phone,
+                        every = @every, start_date = @start_date WHERE id = @id`),
+  delFixed: db.prepare('DELETE FROM fixed_slots WHERE id = ?'),
+  addSkip: db.prepare('INSERT OR IGNORE INTO fixed_skips (fixed_id, date) VALUES (?, ?)'),
+  delSkip: db.prepare('DELETE FROM fixed_skips WHERE fixed_id = ? AND date = ?'),
   listBlocks: db.prepare('SELECT * FROM blocks WHERE date >= ? ORDER BY date, time'),
-  addAudit: db.prepare('INSERT INTO audit (admin, action, detail) VALUES (?, ?, ?)'),
-  listAudit: db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT 100'),
   pendingReminders: db.prepare(`SELECT * FROM appointments
       WHERE status = 'confirmed' AND reminder_sent = 0 AND reminder_attempts < 3 AND date >= ?
       ORDER BY date, time`),
 };
 
-const activeTimes = (date, excludeId = 0) => stmt.activeTimes.all({ date, ex: excludeId }).map((r) => r.time);
+/** Citas activas del día: [{ time, slots }] */
+const activeTimes = (date, excludeId = 0) =>
+  stmt.activeTimes.all({ date, ex: excludeId }).map((r) => ({ time: r.time, slots: Number(r.slots) || 1 }));
 const blocksFor = (date) => stmt.blocksFor.all(date);
 
-/** ¿Choca con otra cita activa? (cada cita ocupa 1 hora) */
-function hasConflict(date, time, excludeId = 0) {
+/**
+ * Turnos fijos que tocan en `date` (mismo día de la semana y, si es cada 2 semanas,
+ * la semana que corresponde). Con includeSkipped también los liberados ese día (skipped: true).
+ */
+function fixedFor(date, { includeSkipped = false } = {}) {
+  return stmt.fixedByDow.all({ dow: dayOfWeek(date), date })
+    .filter((f) => (daysBetween(f.start_date, date) / 7) % f.every === 0)
+    .map((f) => ({ ...f, skipped: Boolean(f.skipped) }))
+    .filter((f) => includeSkipped || !f.skipped);
+}
+
+/** Todo lo que ocupa horas ese día: citas activas + turnos fijos (con fixed: true). */
+const busyFor = (date, excludeId = 0) => [
+  ...activeTimes(date, excludeId),
+  ...fixedFor(date).map((f) => ({ time: f.time, slots: 1, fixed: true, name: f.name })),
+];
+
+/** ¿Choca con otra cita activa o con un turno fijo? (cada cita ocupa `slots` horas) */
+function hasConflict(date, time, excludeId = 0, slots = 1) {
   const s = toMin(time);
-  return activeTimes(date, excludeId).some((t) => Math.abs(toMin(t) - s) < SLOT_MIN);
+  const e = s + slots * SLOT_MIN;
+  return busyFor(date, excludeId).some((a) => {
+    const as = toMin(a.time);
+    return s < as + a.slots * SLOT_MIN && as < e;
+  });
 }
 
 function insertAppointment(data) {
   const code = newCode();
   const info = stmt.insert.run({
     code,
+    token: newToken(),
     name: data.name,
     phone: data.phone,
+    service: data.service || '',
+    slots: data.slots === 2 ? 2 : 1,
     note: data.note || '',
     date: data.date,
     time: data.time,
@@ -142,16 +260,28 @@ function listAppointments({ from, to, status, q, limit = 500 }) {
 
 module.exports = {
   db,
-  activeTimes, blocksFor, hasConflict,
+  activeTimes, blocksFor, hasConflict, busyFor, fixedFor,
+  listFixed: () => stmt.listFixed.all(),
+  getFixed: (id) => stmt.getFixed.get(id),
+  addFixed: (f) => stmt.getFixed.get(stmt.addFixed.run(f).lastInsertRowid),
+  updateFixed: (id, f) => { stmt.updFixed.run({ ...f, id }); return stmt.getFixed.get(id); },
+  deleteFixed: (id) => Number(stmt.delFixed.run(id).changes),
+  skipFixed: (id, date) => stmt.addSkip.run(id, date),
+  unskipFixed: (id, date) => stmt.delSkip.run(id, date),
   countFuturePhone: (phone, today) => stmt.countFuturePhone.get(phone, today).c,
   insertAppointment, updateAppointment, listAppointments,
   getAppointment: (id) => stmt.get.get(id),
+  getAppointmentByToken: (token) => (typeof token === 'string' && token ? stmt.getByToken.get(token) : undefined),
   deleteAppointment: (id) => stmt.del.run(id).changes,
   addBlock: (date, time, reason) => stmt.getBlock.get(stmt.addBlock.run(date, time, reason).lastInsertRowid),
   getBlock: (id) => stmt.getBlock.get(id),
   deleteBlock: (id) => stmt.delBlock.run(id).changes,
+  /** Borra citas y bloqueos con fecha anterior a `date` (YYYY-MM-DD). Devuelve cuántas citas borró. */
+  purgeBefore: (date) => {
+    stmt.purgeBlocks.run(date);
+    stmt.purgeSkips.run(date);
+    return Number(stmt.purgeAppts.run(date).changes);
+  },
   listBlocks: (from) => stmt.listBlocks.all(from),
-  audit: (admin, action, detail) => stmt.addAudit.run(admin, action, detail),
-  listAudit: () => stmt.listAudit.all(),
   pendingReminders: (today) => stmt.pendingReminders.all(today),
 };

@@ -9,7 +9,11 @@ const cfg = require('./src/config');
 const repo = require('./src/db');
 const auth = require('./src/auth');
 const reminders = require('./src/reminders');
+const cleanup = require('./src/cleanup');
+const notify = require('./src/notify');
+const { citaRoutes } = require('./src/cita-routes');
 const S = require('./src/schedule');
+const services = require('./src/services');
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -70,17 +74,24 @@ function createApp() {
 
   // ---------- API pública ----------
   app.get('/api/config', (req, res) => {
-    res.json({ name: cfg.name, whatsapp: cfg.whatsapp, today: S.nowParts().date });
+    res.json({
+      name: cfg.name, whatsapp: cfg.whatsapp, today: S.nowParts().date,
+      services: services.SERVICES, addon: services.ADDON,
+    });
   });
 
+  // Horas que necesita la reserva: ?service=<id> o ?slots=2 (página de la cita)
+  const needFrom = (q) => (q.service ? services.slotsFor(String(q.service)) : (Number(q.slots) === 2 ? 2 : 1));
+
   app.get('/api/calendar', (req, res) => {
+    const need = needFrom(req.query);
     const now = S.nowParts();
-    const w = S.bookingWindow(now.date, cfg.anchor);
+    const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
     const days = [];
     for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) {
       const info = S.dayInfo(d);
       const slots = S.computeSlots(d, {
-        busyTimes: repo.activeTimes(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin,
+        busyTimes: repo.busyFor(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin, need,
       });
       days.push({
         date: d, dow: info.dow, open: info.open, holiday: info.holiday,
@@ -89,7 +100,7 @@ function createApp() {
     }
     res.json({
       today: now.date,
-      window: { start: w.start, end: w.end, nextUnlock: w.nextUnlock },
+      window: { start: w.start, end: w.end, nextUnlock: w.nextUnlock, nextUnlockTime: S.format12(w.nextUnlockTime) },
       days,
     });
   });
@@ -97,7 +108,7 @@ function createApp() {
   function assertInWindow(date) {
     if (!S.isDateStr(date)) throw bad('Fecha no válida');
     const now = S.nowParts();
-    const w = S.bookingWindow(now.date, cfg.anchor);
+    const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
     if (date < w.firstBookable || date > w.end) {
       throw new HttpError(400, 'Esa fecha todavía no está habilitada para reservas');
     }
@@ -109,7 +120,8 @@ function createApp() {
       assertInWindow(date);
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.activeTimes(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
+        busyTimes: repo.busyFor(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
+        need: needFrom(req.query),
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
     } catch (e) { next(e); }
@@ -122,9 +134,11 @@ function createApp() {
 
   const book = repo.db.transaction((data) => {
     const slot = S.computeSlots(data.date, {
-      busyTimes: repo.activeTimes(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
+      busyTimes: repo.busyFor(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
+      need: data.slots,
     }).find((s) => s.time === data.time);
     if (!slot) throw bad('Esa hora no hace parte del horario');
+    if (slot.reason === 'short') throw new HttpError(409, 'Este servicio dura 2 horas y no alcanza a esa hora. Elige otra.');
     if (!slot.available) throw new HttpError(409, 'Esa hora ya no está disponible. Elige otra.');
     if (repo.countFuturePhone(data.phone, S.nowParts().date) >= cfg.maxActivePerPhone) {
       throw new HttpError(409, `Ya tienes ${cfg.maxActivePerPhone} citas activas con este número.`);
@@ -132,19 +146,23 @@ function createApp() {
     return repo.insertAppointment({ ...data, source: 'web' });
   });
 
-  app.post('/api/appointments', bookLimiter, (req, res, next) => {
+  app.post('/api/appointments', bookLimiter, async (req, res, next) => {
     try {
       const b = req.body || {};
       const name = cleanText(b.name, 60);
       const phone = normalizePhone(b.phone);
-      const note = cleanText(b.note, 200);
+      const service = services.describeChoice(b.service, b.addon);
       if (name.length < 2) throw bad('Escribe tu nombre');
       if (!phone) throw bad('Escribe un celular colombiano válido (10 dígitos, ej. 300 123 4567)');
+      if (!service) throw bad('Elige el tipo de servicio');
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
-      const appt = book({ name, phone, note, date: b.date, time: b.time });
+      const appt = book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
+      // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
+      const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
-        code: appt.code, name: appt.name, date: appt.date, time: appt.time,
+        code: appt.code, name: appt.name, phone: appt.phone, service: appt.service, slots: appt.slots, date: appt.date, time: appt.time,
+        manageUrl: notify.manageUrl(appt, req), whatsappSent,
       });
     } catch (e) {
       if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -165,7 +183,6 @@ function createApp() {
       const user = await auth.verifyLogin(req.body && req.body.user, req.body && req.body.pass);
       if (!user) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       auth.setSession(res, user);
-      repo.audit(user, 'login', '');
       res.json({ user, today: S.nowParts().date });
     } catch (e) { next(e); }
   });
@@ -196,9 +213,11 @@ function createApp() {
       const date = String(req.query.date || '');
       if (!S.isDateStr(date)) throw bad('Fecha no válida');
       const ex = Number(req.query.exclude) || 0;
+      const editing = ex ? repo.getAppointment(ex) : null;
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.activeTimes(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
+        busyTimes: repo.busyFor(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
+        need: editing ? editing.slots : 1,
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
     } catch (e) { next(e); }
@@ -230,17 +249,14 @@ function createApp() {
     return out;
   }
 
-  const describe = (a) => `#${a.id} ${a.name} ${a.date} ${a.time}`;
-
   admin.post('/appointments', (req, res, next) => {
     try {
       const f = readApptFields(req.body || {}, { partial: false });
       const create = repo.db.transaction(() => {
-        if (repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita en ese horario');
+        if (repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
         return repo.insertAppointment({ ...f, status: 'confirmed', source: 'admin' });
       });
       const appt = create();
-      repo.audit(req.admin, 'crear cita', describe(appt));
       res.status(201).json({ appointment: appt });
     } catch (e) { next(e); }
   });
@@ -256,18 +272,13 @@ function createApp() {
         const becomesActive = next.status !== 'cancelled';
         const moved = next.date !== before.date || next.time !== before.time;
         const reactivated = before.status === 'cancelled' && becomesActive;
-        if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id)) {
-          throw new HttpError(409, 'Ya hay una cita en ese horario');
+        if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id, before.slots)) {
+          throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
         }
         const after = repo.updateAppointment(id, { ...f, resetReminder: moved });
         return { before, after, moved };
       });
-      const { before, after, moved } = run();
-      let action = 'editar cita';
-      let detail = describe(after);
-      if (moved) { action = 'reprogramar'; detail = `${describe(before)} → ${after.date} ${after.time}`; }
-      else if (f.status && f.status !== before.status) { action = `estado: ${f.status}`; }
-      repo.audit(req.admin, action, detail);
+      const { after } = run();
       res.json({ appointment: after });
     } catch (e) {
       if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') return next(new HttpError(409, 'Ya hay una cita en ese horario'));
@@ -280,7 +291,6 @@ function createApp() {
       const a = repo.getAppointment(Number(req.params.id));
       if (!a) throw new HttpError(404, 'Cita no encontrada');
       repo.deleteAppointment(a.id);
-      repo.audit(req.admin, 'eliminar cita', describe(a));
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
@@ -299,7 +309,6 @@ function createApp() {
         time = b.time;
       }
       const blk = repo.addBlock(b.date, time, cleanText(b.reason, 80));
-      repo.audit(req.admin, 'bloquear', `${blk.date} ${blk.time || 'todo el día'} ${blk.reason}`.trim());
       res.status(201).json({ block: blk });
     } catch (e) { next(e); }
   });
@@ -309,14 +318,102 @@ function createApp() {
       const blk = repo.getBlock(Number(req.params.id));
       if (!blk) throw new HttpError(404, 'Bloqueo no encontrado');
       repo.deleteBlock(blk.id);
-      repo.audit(req.admin, 'desbloquear', `${blk.date} ${blk.time || 'todo el día'}`);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
 
-  admin.get('/audit', (req, res) => res.json({ audit: repo.listAudit() }));
+  // ---------- Admin: turnos fijos ----------
+  function readFixed(b) {
+    const dow = Number(b.dow);
+    if (!Number.isInteger(dow) || dow < 0 || dow > 6) throw bad('Día no válido');
+    if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
+    const name = cleanText(b.name, 60);
+    if (name.length < 2) throw bad('Escribe el nombre del cliente');
+    let phone = '';
+    if (b.phone && String(b.phone).replace(/\D/g, '')) {
+      phone = normalizePhone(b.phone, { lenient: true });
+      if (!phone) throw bad('Celular no válido');
+    }
+    const every = Number(b.every) === 2 ? 2 : 1;
+    if (!S.isDateStr(b.start_date)) throw bad('Elige la primera fecha');
+    if (S.dayOfWeek(b.start_date) !== dow) throw bad('La primera fecha tiene que caer en el mismo día de la semana');
+    return { dow, time: b.time, name, phone, every, start_date: b.start_date };
+  }
+
+  admin.get('/fixed', (req, res) => res.json({ fixed: repo.listFixed() }));
+
+  admin.post('/fixed', (req, res, next) => {
+    try { res.status(201).json({ fixed: repo.addFixed(readFixed(req.body || {})) }); } catch (e) { next(e); }
+  });
+
+  admin.patch('/fixed/:id', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!repo.getFixed(id)) throw new HttpError(404, 'Turno fijo no encontrado');
+      res.json({ fixed: repo.updateFixed(id, readFixed(req.body || {})) });
+    } catch (e) { next(e); }
+  });
+
+  admin.delete('/fixed/:id', (req, res, next) => {
+    try {
+      if (!repo.deleteFixed(Number(req.params.id))) throw new HttpError(404, 'Turno fijo no encontrado');
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  // Liberar (PUT) o volver a bloquear (DELETE) un turno fijo solo en una fecha
+  admin.put('/fixed/:id/skips/:date', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const { date } = req.params;
+      if (!S.isDateStr(date)) throw bad('Fecha no válida');
+      if (!repo.fixedFor(date, { includeSkipped: true }).some((f) => f.id === id)) {
+        throw bad('Ese turno fijo no toca en esa fecha');
+      }
+      repo.skipFixed(id, date);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+  admin.delete('/fixed/:id/skips/:date', (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const { date } = req.params;
+      if (!S.isDateStr(date)) throw bad('Fecha no válida');
+      const f = repo.fixedFor(date, { includeSkipped: true }).find((x) => x.id === id);
+      if (!f) throw bad('Ese turno fijo no toca en esa fecha');
+      if (f.skipped && repo.hasConflict(date, f.time)) {
+        throw new HttpError(409, 'Esa hora ya la tomó otra persona; cancela esa cita primero');
+      }
+      repo.unskipFixed(id, date);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  // Calendario del admin: por cada día, horario, citas activas y turnos fijos (con nombres)
+  admin.get('/agenda', (req, res, next) => {
+    try {
+      const { from, to } = req.query;
+      if (!S.isDateStr(from) || !S.isDateStr(to) || to < from || S.daysBetween(from, to) > 31) {
+        throw bad('Rango de fechas no válido');
+      }
+      const appts = repo.listAppointments({ from, to, status: 'active' });
+      const days = [];
+      for (let d = from; d <= to; d = S.addDays(d, 1)) {
+        const info = S.dayInfo(d);
+        days.push({
+          date: d, dow: info.dow, open: info.open, holiday: info.holiday, ranges: info.ranges,
+          appointments: appts.filter((a) => a.date === d),
+          fixed: repo.fixedFor(d, { includeSkipped: true }),
+        });
+      }
+      res.json({ days });
+    } catch (e) { next(e); }
+  });
 
   app.use('/api/admin', admin);
+
+  // ---------- Cliente: gestionar su cita con el link privado ----------
+  app.use('/api/cita', citaRoutes());
 
   // ---------- Páginas ----------
   // El panel no se enlaza desde ningún lado: solo se entra escribiendo /admin.
@@ -327,7 +424,21 @@ function createApp() {
   });
   app.use('/admin/assets', express.static(path.join(__dirname, 'admin-ui', 'assets'), { index: false, maxAge: 0 }));
 
-  app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '5m' }));
+  // Página del link que recibe el cliente por WhatsApp
+  const citaHtml = path.join(__dirname, 'public', 'cita.html');
+  app.get('/cita/:token', (req, res) => {
+    res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+    res.sendFile(citaHtml);
+  });
+
+  // Páginas, estilos y JS: el navegador siempre pregunta si hay versión nueva (responde 304 si no cambió),
+  // así cada cambio se ve al recargar. Imágenes: se guardan 1 hora.
+  app.use(express.static(path.join(__dirname, 'public'), {
+    extensions: ['html'],
+    setHeaders(res, filePath) {
+      res.setHeader('Cache-Control', /\.(html|css|js)$/.test(filePath) ? 'no-cache' : 'public, max-age=3600');
+    },
+  }));
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));
   app.use((req, res) => res.status(404).type('text/plain').send('Página no encontrada'));
@@ -350,5 +461,6 @@ if (require.main === module) {
     console.log(`${cfg.name} escuchando en http://localhost:${cfg.port}`);
     console.log(`Panel admin: http://localhost:${cfg.port}/admin`);
     reminders.start();
+    cleanup.start();
   });
 }

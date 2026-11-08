@@ -3,7 +3,8 @@
   const $ = (id) => document.getElementById(id);
 
   let cal = null;
-  let cfg = { whatsapp: '' };
+  let cfg = { whatsapp: '', services: [], addon: null };
+  const money = (n) => '$' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // 7000 -> $7.000
   let selDate = null;
   let selTime = null;
 
@@ -22,11 +23,61 @@
     n.replaceChildren(
       'Agenda abierta del ', h('strong', {}, longDate(cal.window.start)),
       ' al ', h('strong', {}, longDate(cal.window.end)),
-      '. Las siguientes fechas se habilitan el ', h('strong', {}, longDate(cal.window.nextUnlock)), '.'
+      '. Las siguientes fechas se habilitan el ', h('strong', {}, `${longDate(cal.window.nextUnlock)} a las ${cal.window.nextUnlockTime}`), '.'
     );
     n.hidden = false;
+    renderServices();
     renderCalendar();
   }
+
+  // ---------- Tipo de servicio ----------
+  function renderServices() {
+    const sel = $('service');
+    const groups = new Map();
+    for (const s of cfg.services || []) {
+      if (!groups.has(s.group)) groups.set(s.group, h('optgroup', { label: s.group }));
+      groups.get(s.group).append(h('option', { value: s.id }, `${s.name} — ${money(s.price)}`));
+    }
+    sel.append(...groups.values());
+    if (cfg.addon) $('addonLabel').textContent = `Agregar ${cfg.addon.name.toLowerCase()} (+${money(cfg.addon.price)})`;
+  }
+
+  function currentService() { return (cfg.services || []).find((s) => s.id === $('service').value) || null; }
+  const need = () => (currentService() || { slots: 1 }).slots;
+  const hoursLabel = (n) => (n === 2 ? '2 horas' : '1 hora');
+
+  // Al cambiar de servicio cambia la duración: se recarga el calendario y se vuelve a elegir hora.
+  async function onServiceChange() {
+    const s = currentService();
+    const canAddon = Boolean(s && cfg.addon && !s.noAddon);
+    $('addonRow').hidden = !canAddon;
+    if (!canAddon) $('addon').checked = false;
+    $('serviceHint').hidden = !(s && s.slots === 2);
+    $('serviceHint').textContent = 'Este servicio dura más de 1 h 10 min: se reservan 2 horas seguidas.';
+    if (!s) { $('stepDay').hidden = true; $('stepTime').hidden = true; $('stepForm').hidden = true; return; }
+    try { cal = await api(`/api/calendar?service=${encodeURIComponent(s.id)}`); } catch (e) { showError(e.message); return; }
+    $('stepDay').hidden = false;
+    selTime = null;
+    $('stepForm').hidden = true;
+    renderCalendar();
+    if (selDate && cal.days.some((d) => d.date === selDate && d.open)) await pickDay(selDate, { scroll: false });
+    else { selDate = null; $('stepTime').hidden = true; renderCalendar(); }
+  }
+
+  function updateSummary() {
+    if (!selDate || !selTime) return;
+    const s = currentService();
+    const parts = ['Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(selTime)), ` (${hoursLabel(need())})`];
+    if (s) {
+      const addon = $('addon').checked;
+      const total = s.price + (addon ? cfg.addon.price : 0);
+      parts.push(h('br'), 'Servicio: ', h('b', {}, s.name + (addon ? ` + ${cfg.addon.name.toLowerCase()}` : '')),
+        ' · Total: ', h('b', {}, money(total)));
+    }
+    $('summary').replaceChildren(...parts);
+  }
+  $('service').addEventListener('change', onServiceChange);
+  $('addon').addEventListener('change', updateSummary);
 
   function renderCalendar() {
     const grid = $('cal');
@@ -68,7 +119,7 @@
     }
   }
 
-  async function pickDay(date) {
+  async function pickDay(date, { scroll = true } = {}) {
     selDate = date; selTime = null;
     $('stepForm').hidden = true;
     renderCalendar();
@@ -78,31 +129,30 @@
     box.replaceChildren();
     $('slotsEmpty').hidden = true;
     try {
-      const data = await api(`/api/slots?date=${date}`);
+      const data = await api(`/api/slots?date=${date}&service=${encodeURIComponent($('service').value)}`);
       renderSlots(data.slots);
     } catch (e) {
       showError(e.message);
     }
-    $('stepTime').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scroll) $('stepTime').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderSlots(slots) {
     const box = $('slots');
     box.replaceChildren(...slots.map((s) => h('button', {
       type: 'button',
-      class: 'chip' + (s.time === selTime ? ' is-selected' : ''),
+      class: 'chip' + (s.time === selTime ? ' is-selected' : '') + (s.reason === 'fixed' ? ' is-locked' : ''),
       disabled: !s.available,
+      title: s.reason === 'short' ? 'No alcanza: este servicio dura 2 horas' : '',
       onclick: () => pickTime(s.time, slots),
-    }, time12(s.time))));
+    }, time12(s.time), s.reason === 'fixed' ? h('small', {}, 'BLOQUEADA') : null)));
     $('slotsEmpty').hidden = slots.some((s) => s.available);
   }
 
   function pickTime(time, slots) {
     selTime = time;
     renderSlots(slots);
-    $('summary').replaceChildren(
-      'Tu cita: ', h('b', {}, longDate(selDate)), ' a las ', h('b', {}, time12(time)), ' (1 hora)'
-    );
+    updateSummary();
     $('formError').textContent = '';
     $('stepForm').hidden = false;
     $('stepForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -118,12 +168,13 @@
     const phone = $('phone').value.trim();
     if (name.length < 2) { err.textContent = 'Escribe tu nombre.'; $('name').focus(); return; }
     if (phone.replace(/\D/g, '').length < 10) { err.textContent = 'Escribe tu celular de 10 dígitos.'; $('phone').focus(); return; }
+    if (!$('service').value) { err.textContent = 'Elige el tipo de servicio.'; $('service').focus(); return; }
 
     btn.disabled = true; btn.textContent = 'ENVIANDO…';
     try {
       const r = await api('/api/appointments', {
         method: 'POST',
-        body: { name, phone, note: $('note').value.trim(), date: selDate, time: selTime },
+        body: { name, phone, service: $('service').value, addon: $('addon').checked, date: selDate, time: selTime },
       });
       showDone(r);
     } catch (e) {
@@ -131,7 +182,10 @@
       if (e.status === 409) { // la hora se ocupó: refrescar
         selTime = null;
         $('stepForm').hidden = true;
-        try { cal = await api('/api/calendar'); renderCalendar(); await pickDay(selDate); } catch (_) { /* nada */ }
+        try {
+          cal = await api(`/api/calendar?service=${encodeURIComponent($('service').value)}`);
+          renderCalendar(); await pickDay(selDate);
+        } catch (_) { /* nada */ }
         showError(e.message);
       }
     } finally {
@@ -143,10 +197,15 @@
     $('flow').hidden = true;
     $('notice').hidden = true;
     $('doneWhen').textContent = `${longDate(r.date)} a las ${time12(r.time)}`;
-    $('doneCode').textContent = r.code;
-    if (cfg.whatsapp) {
-      const msg = encodeURIComponent(`Hola, soy ${r.name}. Mi cita en Sebas Barber es el ${longDate(r.date)} a las ${time12(r.time)}. Código ${r.code}.`);
-      $('doneActions').prepend(h('a', { class: 'btn', href: `https://wa.me/${cfg.whatsapp}?text=${msg}`, rel: 'noopener' }, 'Escribir por WhatsApp'));
+    if (r.whatsappSent) {
+      $('doneMsg').replaceChildren(
+        'Te enviamos la confirmación a tu WhatsApp ', h('b', {}, SB.phonePretty(r.phone)),
+        ' con el link para ver, cambiar o cancelar tu cita.'
+      );
+    } else {
+      // Sin WhatsApp (no configurado o falló): el link se muestra aquí
+      $('doneMsg').textContent = 'Guarda este link: desde ahí puedes ver, cambiar o cancelar tu cita.';
+      $('doneActions').prepend(h('a', { class: 'btn', href: r.manageUrl }, 'Ver mi cita'));
     }
     $('done').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });

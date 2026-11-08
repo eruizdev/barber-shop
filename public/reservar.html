@@ -9,7 +9,7 @@
   <link rel="icon" href="/img/logo-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/site.css">
 </head>
@@ -25,25 +25,40 @@
   <main class="book">
     <div class="wrap">
       <h1>Reserva tu cita</h1>
-      <p class="sub">Cada reserva es de 1 hora por corte. Horario de Colombia.</p>
+      <p class="sub">Cada reserva es de 1 hora; los servicios de más de 1 h 10 min ocupan 2 horas. Horario de Colombia.</p>
 
       <div class="notice" id="notice" hidden></div>
       <p class="error" id="loadError" hidden></p>
 
       <div id="flow">
-        <section class="panel" id="stepDay">
-          <h2><i>1</i> Elige el día</h2>
+        <section class="panel" id="stepService">
+          <h2><i>1</i> Elige el servicio</h2>
+          <div class="field">
+            <label for="service">Tipo de servicio</label>
+            <select id="service" name="service" required>
+              <option value="">Elige el servicio…</option>
+            </select>
+          </div>
+          <label class="check" id="addonRow" hidden>
+            <input type="checkbox" id="addon">
+            <span id="addonLabel"></span>
+          </label>
+          <p class="hint" id="serviceHint" hidden></p>
+        </section>
+
+        <section class="panel" id="stepDay" hidden>
+          <h2><i>2</i> Elige el día</h2>
           <div class="cal" id="cal" role="grid" aria-label="Calendario de reservas"></div>
         </section>
 
         <section class="panel" id="stepTime" hidden>
-          <h2><i>2</i> Elige la hora <small id="dayLabel"></small></h2>
+          <h2><i>3</i> Elige la hora <small id="dayLabel"></small></h2>
           <div class="slots" id="slots"></div>
           <p class="empty" id="slotsEmpty" hidden>No quedan horas libres este día. Elige otro día.</p>
         </section>
 
         <section class="panel" id="stepForm" hidden>
-          <h2><i>3</i> Tus datos</h2>
+          <h2><i>4</i> Tus datos</h2>
           <div class="summary" id="summary"></div>
           <form id="form" novalidate>
             <div class="form-grid">
@@ -55,10 +70,6 @@
                 <label for="phone">WhatsApp (celular)</label>
                 <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="300 123 4567" maxlength="16" required>
               </div>
-              <div class="field full">
-                <label for="note">Nota (opcional)</label>
-                <input id="note" name="note" maxlength="200" placeholder="Ej. corte + barba">
-              </div>
             </div>
             <p class="error" id="formError" role="alert"></p>
             <button class="btn btn-lg" type="submit" id="submit">CONFIRMAR CITA</button>
@@ -69,14 +80,19 @@
       <section class="panel success" id="done" hidden>
         <h2>Cita confirmada</h2>
         <p class="when" id="doneWhen"></p>
-        <div class="code" id="doneCode"></div>
-        <p>Guarda este código. Si necesitas cambiar o cancelar tu cita, avísanos con anticipación.</p>
+        <p id="doneMsg"></p>
         <div class="actions" id="doneActions">
           <a class="btn btn-outline" href="/">Volver al inicio</a>
         </div>
       </section>
     </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p class="credit">Página creada por <b>Esteban Ruiz</b> · <a href="mailto:jeruizdev@gmail.com">jeruizdev@gmail.com</a></p>
+    </div>
+  </footer>
 
   <script src="/js/common.js"></script>
   <script src="/js/reservar.js"></script>

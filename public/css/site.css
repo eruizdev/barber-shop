@@ -5,18 +5,33 @@
 .site-header .wrap { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .brand img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--gold-dark); }
-.brand span { font-family: var(--font-head); font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+.brand span { font-family: var(--font-head); font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+.site-header .wrap { gap: 12px; }
+.site-header .btn { white-space: nowrap; }
 
 /* Hero */
-.hero { padding: 48px 0 64px; }
-.hero .wrap { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
-.eyebrow { font-family: var(--font-head); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); font-size: 15px; margin-bottom: 16px; }
-.hero h1 { font-size: clamp(56px, 11vw, 118px); letter-spacing: 0.03em; margin-bottom: 20px; }
-.hero .lead { color: var(--muted); font-size: 20px; max-width: 30ch; margin-bottom: 32px; }
-.agenda-note { margin-top: 20px; color: var(--muted); font-size: 15px; max-width: 42ch; }
+.hero { padding: 30px 0 40px; }
+.hero .wrap {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  grid-template-areas: "text logo" "cta logo"; column-gap: 48px; align-items: center;
+}
+.hero-text { grid-area: text; align-self: end; }
+.hero-cta { grid-area: cta; align-self: start; }
+.eyebrow { font-family: var(--font-head); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); font-size: 13px; margin-bottom: 10px; }
+.hero h1 { font-size: clamp(42px, 5.6vw, 72px); letter-spacing: 0.03em; margin-bottom: 12px; }
+.hero .lead { color: var(--muted); font-size: 17px; max-width: 32ch; margin-bottom: 22px; }
+.hero-cta .btn-lg { padding: 13px 32px; font-size: 18px; }
+.agenda-note { margin-top: 14px; color: var(--muted); font-size: 14px; max-width: 44ch; }
 .agenda-note strong { color: var(--text); font-weight: 600; }
-.hero-logo { border: 1px solid var(--gold-dark); padding: 10px; background: var(--surface); }
-.hero-logo img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+.hero-logo {
+  grid-area: logo; justify-self: end; width: 100%; max-width: 300px;
+  border: 1px solid var(--gold-dark); padding: 8px; background: var(--surface);
+  position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hero-logo img { position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; opacity: 0; }
+/* El logo aparece entre cenizas (public/js/cenizas.js dibuja el efecto en un canvas encima) */
+.hero-logo.is-open img { opacity: 1; }
+.hero-logo .cenizas { position: absolute; z-index: 2; pointer-events: none; }
 
 /* Info */
 .section { padding: 56px 0; border-top: 1px solid var(--line); }
@@ -36,6 +51,94 @@
 .site-footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 15px; }
 .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .site-footer a { color: var(--gold); }
+.site-footer .credit { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+.site-footer .credit b { color: var(--text); font-weight: 600; }
+.site-footer .credit a { text-decoration: none; }
+.site-footer .credit a:hover { text-decoration: underline; }
+
+.nav { display: flex; gap: 10px; }
+
+/* Servicios y precios */
+.prices { scroll-margin-top: 70px; }
+.fade-banner { position: relative; display: table; margin-bottom: 28px; }
+.section h2.fade-word, .fade-word {
+  display: block; font-family: var(--font-head); font-weight: 600; text-transform: uppercase;
+  font-size: clamp(42px, 5.6vw, 76px); line-height: 0.9; letter-spacing: 0.05em; margin: 0;
+  /* se desvanece de arriba hacia abajo, como un fade */
+  background: linear-gradient(180deg, var(--text) 0%, var(--text) 30%, var(--gold) 55%, rgba(201, 162, 77, 0) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 1px rgba(201, 162, 77, 0.35);
+  user-select: none;
+}
+.guards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.guards li { font-family: var(--font-head); font-size: 12px; letter-spacing: 0.1em; color: var(--muted); padding-top: 8px; border-top: 4px solid var(--gold); }
+.guards li:nth-child(1) { border-color: #2a2418; }
+.guards li:nth-child(2) { border-color: #43391f; }
+.guards li:nth-child(3) { border-color: #5f4e27; }
+.guards li:nth-child(4) { border-color: #7f6730; }
+.guards li:nth-child(5) { border-color: #a5853c; }
+.guards li::before { content: '#'; opacity: 0.6; }
+
+.svc-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.svc-group { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 16px 14px 14px; }
+.svc-group.is-vip { border-color: var(--gold); background: linear-gradient(160deg, #2d2716 0%, var(--surface) 60%); }
+.svc-group.is-wide { grid-column: 1 / -1; border-color: var(--gold-dark); }
+.svc-group header { display: flex; align-items: center; gap: 10px; margin: 0 2px 12px; }
+.svc-group h3 { font-size: 24px; letter-spacing: 0.12em; color: var(--gold); }
+.ico { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.svc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-auto-rows: 1fr; }
+.svc-group.is-wide .svc-list { grid-template-columns: repeat(2, 1fr); }
+
+/* Todas las tarjetas iguales: foto | texto | precio */
+.svc {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center;
+  min-height: 104px; overflow: hidden;
+  background: #2c2c2c; border: 1px solid #6a5628; border-radius: 8px;
+}
+.svc-photo { width: 100%; height: 100%; object-fit: cover; align-self: stretch; }
+/* Mensualidades: sin foto, tarjeta compacta, se compran por WhatsApp */
+.svc-wa {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+  color: var(--gold); font-weight: 600; font-size: 13px; text-decoration: none;
+  border: 1px solid var(--gold-dark); border-radius: 3px; padding: 4px 10px;
+}
+.svc-wa:hover { background: #2d2716; border-color: var(--gold); }
+.svc-wa svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
+.svc.no-photo .svc-price { margin: 12px 0; }
+.svc.no-photo .svc-wa { grid-column: 1 / -1; justify-self: start; margin: 0 14px 12px; }
+.svc-group.is-wide .svc-list:has(.no-photo) { grid-auto-rows: auto; }
+
+.svc-body { padding: 10px 12px 10px 14px; }
+.svc-body h4 { font-family: var(--font-head); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; font-size: 19px; line-height: 1.1; margin: 0 0 3px; }
+.svc-body p { color: #dedcd6; font-size: 13.5px; line-height: 1.35; }
+.svc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 7px; min-height: 24px; }
+.svc-time {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line-2); border-radius: 3px; padding: 1px 7px; font-weight: 600; font-size: 12.5px;
+}
+.clock { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+
+.svc-icons { display: flex; align-items: center; gap: 3px; color: var(--gold); }
+.svc-icons b { font-weight: 400; font-size: 11px; }
+.svc-icons .i { width: 20px; height: 20px; fill: none; stroke: var(--gold); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.svc-icons .i-brow { stroke-width: 2.6; }
+.svc-icons .i-fill path { fill: var(--gold); stroke: none; }
+.svc-icons .i-fill .cut { fill: none; stroke: #2c2c2c; stroke-width: 1.6; }
+
+.svc-price {
+  align-self: stretch; display: flex; align-items: center; justify-content: center;
+  border-left: 1px solid var(--line-2); margin: 16px 0; padding: 0 14px; min-width: 96px;
+  font-family: var(--font-head); font-weight: 500; font-size: 25px; color: var(--gold); white-space: nowrap;
+}
+
+/* Pantallas medianas: una columna */
+@media (max-width: 960px) {
+  .svc-board { grid-template-columns: 1fr; }
+  .svc-group.is-wide { grid-column: auto; }
+  .svc-group.is-wide .svc-list { grid-template-columns: 1fr; }
+}
 
 /* Reservar */
 .book { padding: 36px 0 80px; }
@@ -62,8 +165,8 @@
 .day.is-selected small { color: #2a2208; }
 .day.is-holiday small.tag { color: var(--gold); }
 .day.is-selected.is-holiday small.tag { color: #2a2208; }
-.day:disabled { cursor: not-allowed; background: transparent; border-style: dashed; border-color: var(--line); color: #5a5a57; }
-.day:disabled small { color: #5a5a57; }
+.day:disabled { cursor: not-allowed; background: transparent; border-style: dashed; border-color: var(--line); color: #85837d; }
+.day:disabled small { color: #85837d; }
 .day.blank { visibility: hidden; }
 
 .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 10px; }
@@ -73,13 +176,16 @@
 }
 .chip:hover:not(:disabled) { border-color: var(--gold); }
 .chip.is-selected { background: var(--gold); border-color: var(--gold); color: #0b0b0b; }
-.chip:disabled { color: #5a5a57; text-decoration: line-through; cursor: not-allowed; border-style: dashed; background: transparent; }
+.chip:disabled { color: #85837d; text-decoration: line-through; cursor: not-allowed; border-style: dashed; background: transparent; }
 .empty { color: var(--muted); }
 
-.summary { border: 1px solid var(--gold-dark); background: #14110a; padding: 14px 18px; margin-bottom: 20px; }
+.summary { border: 1px solid var(--gold-dark); background: #2d2716; padding: 14px 18px; margin-bottom: 20px; }
 .summary b { color: var(--gold); font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .form-grid .full { grid-column: 1 / -1; }
+.hint { color: var(--gold); font-size: 15px; margin-top: 4px; }
+.check { display: flex; align-items: center; gap: 10px; margin: -4px 0 16px; cursor: pointer; font-size: 16px; }
+.check input { width: 24px; height: 24px; flex: none; accent-color: var(--gold); }
 
 .success { text-align: center; padding: 40px 24px; }
 .success h2 { font-size: 34px; margin-bottom: 12px; }
@@ -88,15 +194,113 @@
 .success .when { color: var(--text); font-size: 20px; }
 .success .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
+/* Mi cita (/cita/<token>) */
+.appt-card .when { font-family: var(--font-head); font-size: clamp(24px, 5vw, 34px); letter-spacing: 0.04em; margin: 14px 0 6px; }
+.appt-card .meta { color: var(--muted); margin-bottom: 4px; }
+.appt-card .meta b { color: var(--text); font-weight: 600; }
+.status { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--line-2); color: var(--muted); }
+.status.is-confirmed { color: var(--ok); border-color: var(--ok); }
+.status.is-cancelled, .status.is-no_show { color: var(--danger); border-color: var(--danger); }
+.panel .actions { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+.panel .actions:empty { display: none; }
+.chip small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+/* Turno fijo: rojo de bloqueo, no se tacha, dice BLOQUEADA */
+.chip.is-locked:disabled { text-decoration: none; color: #fff; border: 1px solid var(--block-line); background: var(--block); opacity: 1; }
+.chip.is-locked small { color: #fff; font-weight: 700; letter-spacing: 0.14em; }
+.chip.is-selected small { color: #2a2208; }
+.slots.days { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+
+/* ---------- Celulares: todo más compacto y proporcionado (sin efecto "zoom") ---------- */
 @media (max-width: 760px) {
-  .hero { padding: 28px 0 44px; }
-  .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
-  .hero-logo { order: -1; max-width: 340px; width: 100%; margin-inline: auto; }
-  .btn-lg { width: 100%; padding: 18px 20px; }
+  .wrap { width: calc(100% - 32px); }
+  /* encabezado */
+  .site-header .wrap { padding: 10px 0; }
+  .nav .btn-outline { display: none; }
+  /* portada */
+  .hero { padding: 20px 0 28px; }
+  .hero .wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
+    grid-template-areas: "text logo" "cta cta"; column-gap: 16px; row-gap: 18px;
+  }
+  .hero-text { align-self: center; }
+  .hero-logo { max-width: 180px; padding: 5px; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.26em; margin-bottom: 6px; }
+  .hero h1 { font-size: clamp(32px, 9.5vw, 46px); margin-bottom: 8px; }
+  .hero .lead { font-size: 14.5px; margin-bottom: 0; }
+  .btn-lg, .hero-cta .btn-lg { width: 100%; padding: 13px 20px; font-size: 17px; }
+  .agenda-note { font-size: 13px; margin-top: 10px; max-width: none; }
+  /* secciones */
+  .section { padding: 32px 0; }
+  .section h2 { font-size: 24px; margin-bottom: 16px; }
+  .cards { gap: 10px; }
+  .card { padding: 16px; }
+  .card h3 { font-size: 16px; margin-bottom: 8px; }
+  .card p { font-size: 15px; }
+  .card .muted { font-size: 13.5px; }
+  .steps { gap: 14px; }
+  .step::before { font-size: 20px; }
+  .step b { font-size: 16px; }
+  .step span { font-size: 14.5px; }
+  .site-footer { padding: 20px 0 28px; font-size: 13.5px; }
+  /* servicios */
+  .section h2.fade-word, .fade-word { font-size: clamp(38px, 11vw, 54px); }
+  .fade-banner { margin-bottom: 16px; }
+  .guards { margin-top: 8px; }
+  .guards li { font-size: 10px; padding-top: 5px; border-top-width: 3px; }
+  .svc-board { gap: 12px; }
+  .svc-group { padding: 12px 10px; }
+  .svc-group header { margin-bottom: 10px; }
+  .svc-group h3 { font-size: 19px; }
+  .ico { width: 20px; height: 20px; }
+  .svc-list { gap: 8px; }
+  .svc { grid-template-columns: 92px minmax(0, 1fr); grid-template-rows: auto auto; min-height: 104px; }
+  .svc-photo { grid-row: 1 / 3; }
+  .svc-body { padding: 9px 10px 0 12px; }
+  .svc-body h4 { font-size: 16px; }
+  .svc-body p { font-size: 13px; }
+  .svc-meta { gap: 5px 8px; margin-top: 6px; min-height: 0; }
+  .svc-time { font-size: 11.5px; }
+  .svc-icons .i { width: 17px; height: 17px; }
+  .svc-price { grid-column: 2; border-left: 0; margin: 0; padding: 4px 10px 9px 12px; min-width: 0; font-size: 20px; justify-content: flex-start; }
+  /* mensualidades: nombre y precio arriba, botón de WhatsApp a lo ancho */
+  .svc.no-photo { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; min-height: 0; }
+  .svc.no-photo .svc-body { padding: 10px 12px 4px; }
+  .svc.no-photo .svc-price { grid-column: 2; grid-row: 1; padding: 10px 12px 0; align-items: flex-start; }
+  .svc.no-photo .svc-wa { justify-self: stretch; justify-content: center; margin: 4px 12px 12px; padding: 8px 10px; }
+  /* reservar y mi cita */
+  .book { padding: 22px 0 50px; }
+  .book h1 { font-size: 30px; }
+  .book .sub { font-size: 14.5px; margin-bottom: 18px; }
+  .notice { font-size: 14px; padding: 11px 13px; margin-bottom: 18px; }
+  .panel { padding: 16px 12px; margin-bottom: 14px; }
+  .panel > h2 { font-size: 17px; margin-bottom: 12px; flex-wrap: wrap; row-gap: 4px; }
+  .panel > h2 i { width: 24px; height: 24px; font-size: 13px; }
+  .panel > h2 small { flex-basis: 100%; padding-left: 36px; font-size: 14px; }
   .form-grid { grid-template-columns: 1fr; }
-  .panel { padding: 18px 14px; }
-  .day { min-height: 64px; padding: 6px 2px; }
-  .day b { font-size: 19px; }
-  .day small { font-size: 10px; }
   .cal { gap: 4px; }
+  .cal .dow { font-size: 10.5px; }
+  .day { min-height: 54px; padding: 4px 1px; }
+  .day b { font-size: 17px; }
+  .day small { font-size: 9.5px; }
+  .slots { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .chip { padding: 10px 4px; font-size: 14.5px; }
+  .summary { padding: 11px 13px; font-size: 15px; }
+  .check { font-size: 15px; }
+  .hint { font-size: 14px; }
+  .success { padding: 28px 14px; }
+  .success h2 { font-size: 26px; }
+  .success .when { font-size: 17px; }
+  .appt-card .when { font-size: 24px; }
+}
+
+/* ---------- Celulares pequeños (iPhone SE, Android compactos) ---------- */
+@media (max-width: 380px) {
+  .wrap { width: calc(100% - 24px); }
+  .brand { gap: 8px; }
+  .brand img { width: 30px; height: 30px; }
+  .brand span { font-size: 16px; letter-spacing: 0.05em; }
+  .site-header .btn-sm { padding: 7px 10px; font-size: 12px; letter-spacing: 0.06em; }
+  .svc { grid-template-columns: 80px minmax(0, 1fr); }
+  .slots { grid-template-columns: repeat(2, 1fr); }
+  .day small { font-size: 8.5px; }
 }
