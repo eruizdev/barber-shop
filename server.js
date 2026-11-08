@@ -431,7 +431,14 @@ function createApp() {
     res.sendFile(citaHtml);
   });
 
-  app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '5m' }));
+  // Páginas, estilos y JS: el navegador siempre pregunta si hay versión nueva (responde 304 si no cambió),
+  // así cada cambio se ve al recargar. Imágenes: se guardan 1 hora.
+  app.use(express.static(path.join(__dirname, 'public'), {
+    extensions: ['html'],
+    setHeaders(res, filePath) {
+      res.setHeader('Cache-Control', /\.(html|css|js)$/.test(filePath) ? 'no-cache' : 'public, max-age=3600');
+    },
+  }));
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));
   app.use((req, res) => res.status(404).type('text/plain').send('Página no encontrada'));

@@ -262,7 +262,7 @@
   // ---------- calendario semanal ----------
   const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const FIRST = 8 * 60;                 // 8:00
-  const ROWS = 12;                      // 8:00 ... 19:00
+  const ROWS = 13;                      // 8:00 ... 20:00 (última cita 8:00 p. m.)
   const toMin = (t) => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; };
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   const mondayOf = (d) => addDays(d, -((SB.dow(d) + 6) % 7));

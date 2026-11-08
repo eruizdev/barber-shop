@@ -28,8 +28,8 @@ El panel no tiene enlace en la web: se entra escribiendo `/admin`. Eso lo oculta
 
 | Día | Horario |
 |---|---|
-| Lunes a miércoles y festivos | 8:00–11:00 y 14:00–20:00 |
-| Jueves a sábado | 8:00–20:00 continuo |
+| Lunes a miércoles y festivos | 8:00–11:00 y 14:00–21:00 (última cita 8:00 p. m.) |
+| Jueves a sábado | 8:00–21:00 continuo (última cita 8:00 p. m.) |
 | Domingo | cerrado (si es festivo, usa el horario de festivos) |
 
 - 1 reserva = 1 hora. Si el servicio dura más de 1 h 10 min (hoy el VIP 1, 1 h 30), ocupa 2 horas seguidas y solo se ofrecen horas donde alcanzan las 2 antes del cierre. Una persona a la vez (una sola silla). Las duraciones están en `src/services.js`.
