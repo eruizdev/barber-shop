@@ -51,6 +51,14 @@ module.exports = {
     // aunque se haya agendado hace poco (ej. a las 10:15 p. m. para las 11:00 p. m.: sale de una vez).
     // Si pones N > 0, no se manda a citas agendadas (o cambiadas) con menos de N minutos de anticipación.
     skipIfBookedWithinMin: num(process.env.REMINDER_SKIP_IF_BOOKED_WITHIN_MIN, 0),
+    // A quién avisar por WhatsApp cuando un cliente reserva, cambia o cancela (uno o varios, separados por coma).
+    // Vacío = al BUSINESS_WHATSAPP. "off" = no avisar por WhatsApp.
+    adminNotify: (() => {
+      const raw = (process.env.ADMIN_NOTIFY_WHATSAPP || '').trim();
+      if (raw.toLowerCase() === 'off') return [];
+      const list = raw ? raw.split(',') : [process.env.BUSINESS_WHATSAPP || ''];
+      return list.map((p) => p.replace(/\D/g, '')).filter((p) => p.length >= 10);
+    })(),
     // Pausa (aprox.) entre un mensaje y otro cuando hay varios, para no parecer un robot
     pauseMs: num(process.env.REMINDER_PAUSE_MS, 2500),
   },

@@ -168,7 +168,7 @@ function createApp() {
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
       const appt = await book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
-      push.notifyAppointment(appt, 'new'); // aviso al celular de los admin (no se espera)
+      notify.alertAdmins(appt, 'new', req); // aviso a los admin: push al celular + WhatsApp (no se espera)
       // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
       const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({

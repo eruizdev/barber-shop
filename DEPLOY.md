@@ -111,6 +111,8 @@ El panel `/admin` puede mandar una **notificación al celular** cada vez que un 
 - **iPhone (iOS 16.4 o más nuevo):** en Safari abre `https://tudominio.com/admin` → **Compartir (□↑) → Agregar a pantalla de inicio**. Abre el panel **desde ese ícono**, toca **Activar notificaciones** y acepta.
 - **Computador (Chrome/Edge):** igual que Android; llegan mientras el navegador esté abierto.
 
+**También por WhatsApp:** cada reserva, cambio o cancelación del cliente manda un WhatsApp al número de `BUSINESS_WHATSAPP`. Para mandarlo a otro(s) número(s), en `.env`: `ADMIN_NOTIFY_WHATSAPP=573001234567,573009876543`; para apagarlo: `ADMIN_NOTIFY_WHATSAPP=off`. Luego `docker compose up -d`.
+
 Cada admin lo activa en cada dispositivo donde quiera recibir avisos. Para quitarlo, toca **🔔 Notificaciones activas**.
 La sesión del panel **no se cierra sola** (dura 400 días y se renueva cada vez que entras); solo se cierra con **Salir**.
 

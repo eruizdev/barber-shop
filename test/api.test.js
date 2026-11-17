@@ -14,6 +14,7 @@ process.env.DB_POOL_MAX = '8';
 process.env.BOOK_LIMIT_PER_HOUR = '1000';
 process.env.REMINDER_PAUSE_MS = '0';
 process.env.PUBLIC_URL = 'https://barberia.test';
+process.env.ADMIN_NOTIFY_WHATSAPP = 'off'; // se prueba aparte (abajo) para no mezclar mensajes
 
 const S = require('../src/schedule');
 // Ancla: lunes de esta semana (hora Colombia) => ventana = esta semana + la siguiente
@@ -423,6 +424,25 @@ async function runTests() {
       assert.strictEqual(sw.status, 200);
       assert.ok((await sw.text()).includes('showNotification'));
       assert.strictEqual((await fetch(base + '/admin/manifest.webmanifest')).status, 200);
+    }
+
+    // Aviso por WhatsApp al admin cuando un cliente reserva
+    {
+      const cfgw = require('../src/config');
+      cfgw.waha.adminNotify = ['573127990000'];
+      const forAdmin = () => sent.filter((m) => m.chatId === '573127990000@c.us');
+      const ad = cal.days.filter((x) => x.open).at(-1);
+      const afree = (await call('GET', `/api/slots?date=${ad.date}`)).json.slots.find((x) => x.available);
+      assert.ok(afree, 'no hay hora libre para probar el aviso al admin');
+      r = await call('POST', '/api/appointments', { name: 'Aviso Admin', phone: '3008887777', date: ad.date, time: afree.time, service: 'corte-premium' });
+      assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+      for (let i = 0; i < 50 && !forAdmin().length; i++) await new Promise((res) => setTimeout(res, 20));
+      assert.strictEqual(forAdmin().length, 1, 'al admin le llega el WhatsApp de cita nueva');
+      const t = forAdmin()[0].text;
+      assert.ok(t.includes('Nueva cita') && t.includes('Aviso Admin') && t.includes('+573008887777') && t.includes(`Código: ${r.json.code}`), t);
+      assert.ok(t.includes(S.format12(afree.time)) && t.includes(S.formatDateEs(ad.date)), 'fecha y hora');
+      assert.ok(!t.includes('/cita/') && !t.includes('http'), 'sin links');
+      cfgw.waha.adminNotify = [];
     }
 
     // Sesión del admin: larga (no se cierra sola)

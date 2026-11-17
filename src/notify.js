@@ -57,4 +57,32 @@ async function sendConfirmation(appt, req, { changed = false } = {}) {
   }
 }
 
-module.exports = { manageUrl, sendConfirmation, reminderText, fixedReminderText };
+const ADMIN_TITLE = { new: '💈 *Nueva cita*', changed: '🔄 *Cita cambiada por el cliente*', cancelled: '❌ *Cita cancelada por el cliente*' };
+
+// Solo lo esencial: fecha, hora, nombre, celular y código de la cita
+const adminNoticeText = (appt, kind) => [
+  ADMIN_TITLE[kind] || ADMIN_TITLE.new,
+  `📅 ${formatDateEs(appt.date)}`,
+  `🕐 ${format12(appt.time)}`,
+  `👤 ${appt.name}`,
+  `📱 +${appt.phone}`,
+  `🔖 Código: ${appt.code}`,
+].join('\n');
+
+/**
+ * Aviso a los admin cuando un cliente reserva, cambia o cancela desde la web:
+ * notificación push al celular + WhatsApp a ADMIN_NOTIFY_WHATSAPP (o al BUSINESS_WHATSAPP).
+ * No se espera ni lanza errores: la respuesta al cliente no depende de esto.
+ */
+function alertAdmins(appt, kind, req) {
+  require('./push').notifyAppointment(appt, kind).catch(() => {});
+  if (!wa.isConfigured() || !cfg.waha.adminNotify.length) return;
+  const text = adminNoticeText(appt, kind);
+  (async () => {
+    for (const phone of cfg.waha.adminNotify) {
+      try { await wa.sendText(phone, text); } catch (err) { console.error('[whatsapp aviso admin]', err.message); }
+    }
+  })();
+}
+
+module.exports = { manageUrl, sendConfirmation, reminderText, fixedReminderText, alertAdmins, adminNoticeText };
