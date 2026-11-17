@@ -1,0 +1,6 @@
+# Producción en tu PC: dominio real + HTTPS con Caddy (puertos 80/443 reenviados desde el router).
+# Uso: docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.pc.yml up -d --build
+services:
+  app:
+    env_file: !override
+      - .env.local

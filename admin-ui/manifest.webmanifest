@@ -1,0 +1,12 @@
+{
+  "name": "Sebas Barber · Panel",
+  "short_name": "Panel Barber",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "icons": [
+    { "src": "/img/logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ]
+}

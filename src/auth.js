@@ -4,7 +4,11 @@ const jwt = require('jsonwebtoken');
 const cfg = require('./config');
 
 const COOKIE = 'sb_admin';
-const MAX_AGE_MS = 12 * 3600 * 1000;
+// La sesión no se cierra sola: dura 400 días (el máximo que permiten los navegadores para una cookie)
+// y se renueva en cada visita si ya pasó un día. Solo se cierra con "Salir".
+const MAX_AGE_DAYS = 400;
+const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 3600 * 1000;
+const RENEW_AFTER_S = 24 * 3600;
 
 // Usuarios admin desde el .env: ADMIN1_USER / ADMIN1_PASS ... ADMIN5_USER / ADMIN5_PASS
 const users = new Map();
@@ -26,7 +30,7 @@ async function verifyLogin(user, pass) {
 }
 
 function setSession(res, user) {
-  const token = jwt.sign({ sub: user }, cfg.sessionSecret, { expiresIn: '12h' });
+  const token = jwt.sign({ sub: user }, cfg.sessionSecret, { expiresIn: `${MAX_AGE_DAYS}d` });
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'strict',
@@ -42,6 +46,7 @@ function requireAdmin(req, res, next) {
     const payload = jwt.verify(req.cookies[COOKIE] || '', cfg.sessionSecret);
     if (!users.has(payload.sub)) throw new Error('usuario ya no existe');
     req.admin = payload.sub;
+    if (Date.now() / 1000 - payload.iat > RENEW_AFTER_S) setSession(res, payload.sub); // sesión deslizante
     return next();
   } catch (_) {
     return res.status(401).json({ error: 'Sesión no válida' });

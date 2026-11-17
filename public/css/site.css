@@ -51,12 +51,27 @@
 .site-footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 15px; }
 .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .site-footer a { color: var(--gold); }
+/* Instagram: mismo trazo dorado que los íconos de servicios */
+.ig-btn svg, .ig-link svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ig-btn .dot, .ig-link .dot { fill: currentColor; stroke: none; }
+.ig-btn {
+  display: inline-grid; place-items: center; width: 38px; height: 38px; flex: none;
+  color: var(--gold); border: 1px solid var(--gold-dark); border-radius: 50%; transition: background .2s, border-color .2s;
+}
+.ig-btn svg { width: 20px; height: 20px; }
+.ig-btn:hover { background: #2d2716; border-color: var(--gold); }
+.site-footer .ig-link {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  font-family: var(--font-head); letter-spacing: 0.06em;
+}
+.site-footer .ig-link svg { width: 20px; height: 20px; }
+.site-footer .ig-link:hover { text-decoration: underline; }
 .site-footer .credit { flex-basis: 100%; font-size: 13px; color: var(--muted); }
 .site-footer .credit b { color: var(--text); font-weight: 600; }
 .site-footer .credit a { text-decoration: none; }
 .site-footer .credit a:hover { text-decoration: underline; }
 
-.nav { display: flex; gap: 10px; }
+.nav { display: flex; align-items: center; gap: 10px; }
 
 /* Servicios y precios */
 .prices { scroll-margin-top: 70px; }
@@ -192,6 +207,11 @@
 .success .code { display: inline-block; font-family: var(--font-head); font-size: 34px; letter-spacing: 0.3em; border: 1px dashed var(--gold); padding: 8px 22px; margin: 18px 0; color: var(--gold); }
 .success p { color: var(--muted); max-width: 46ch; margin: 0 auto 8px; }
 .success .when { color: var(--text); font-size: 20px; }
+.success .keep { max-width: 520px; margin: 22px auto 0; text-align: left; border: 1px solid var(--gold-dark); border-left: 3px solid var(--gold); background: #2d2716; padding: 16px 18px; }
+.success .keep strong { display: block; color: var(--gold); font-size: 17px; margin-bottom: 6px; }
+.success .keep p { color: var(--text); max-width: none; margin: 0 0 8px; font-size: 15px; }
+.success .keep b { color: var(--gold); letter-spacing: 0.08em; }
+.success .keep .keep-link { display: block; word-break: break-all; color: var(--gold); font-size: 14px; margin: 4px 0 12px; }
 .success .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
 /* Mi cita (/cita/<token>) */
@@ -216,6 +236,8 @@
   /* encabezado */
   .site-header .wrap { padding: 10px 0; }
   .nav .btn-outline { display: none; }
+  .ig-btn { width: 32px; height: 32px; }
+  .ig-btn svg { width: 17px; height: 17px; }
   /* portada */
   .hero { padding: 20px 0 28px; }
   .hero .wrap {

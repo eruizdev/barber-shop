@@ -193,6 +193,26 @@
     }
   });
 
+  // Aviso "guarda tu link": es la única llave para cambiar o cancelar la cita.
+  function keepBox(r) {
+    const copyBtn = h('button', {
+      type: 'button', class: 'btn btn-outline btn-sm',
+      onclick: async () => {
+        try { await navigator.clipboard.writeText(r.manageUrl); copyBtn.textContent = '¡Copiado!'; }
+        catch (_) { copyBtn.textContent = 'Mantén presionado el link para copiarlo'; }
+      },
+    }, 'Copiar link');
+    return [
+      h('strong', {}, '⚠️ Importante: guarda este link'),
+      h('p', {}, r.whatsappSent
+        ? 'También te llegó por WhatsApp: no borres ese mensaje. Es la única forma de ver, cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos por WhatsApp.'
+        : 'Es la única forma de ver, cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos por WhatsApp. Cópialo o tómale captura de pantalla.'),
+      r.code ? h('p', {}, 'Código de tu cita: ', h('b', {}, r.code)) : null,
+      h('a', { class: 'keep-link', href: r.manageUrl }, r.manageUrl),
+      copyBtn,
+    ];
+  }
+
   function showDone(r) {
     $('flow').hidden = true;
     $('notice').hidden = true;
@@ -203,9 +223,13 @@
         ' con el link para ver, cambiar o cancelar tu cita.'
       );
     } else {
-      // Sin WhatsApp (no configurado o falló): el link se muestra aquí
-      $('doneMsg').textContent = 'Guarda este link: desde ahí puedes ver, cambiar o cancelar tu cita.';
+      // Sin WhatsApp (no configurado o falló): el link solo queda en esta pantalla
+      $('doneMsg').textContent = 'No pudimos enviarte el WhatsApp de confirmación. Guarda el link de abajo.';
+    }
+    if (r.manageUrl) {
       $('doneActions').prepend(h('a', { class: 'btn', href: r.manageUrl }, 'Ver mi cita'));
+      $('doneKeep').replaceChildren(...keepBox(r));
+      $('doneKeep').hidden = false;
     }
     $('done').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });

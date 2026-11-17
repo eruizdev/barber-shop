@@ -24,6 +24,7 @@ const confirmationText = (appt, link, changed) => [
   `📅 ${formatDateEs(appt.date)} a las ${format12(appt.time)}`,
   appt.service ? `✂️ ${appt.service}` : '',
   link ? `\nDesde este link puedes ver, cambiar o cancelar tu cita:\n${link}` : '',
+  link ? '\n📌 *Importante:* guarda este mensaje. El link es la única forma de cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos.' : '',
   '\n¡Te esperamos!',
 ].filter((l) => l !== '').join('\n');
 

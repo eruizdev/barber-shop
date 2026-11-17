@@ -179,6 +179,7 @@ async function runTests() {
       assert.strictEqual(m.apiKey, 'clave-de-prueba');
       assert.ok(m.text.includes(r.json.manageUrl), 'el mensaje trae el link de la cita');
       assert.ok(m.text.includes('quedó confirmada') && m.text.includes('Hola Nuevo'), m.text);
+      assert.ok(m.text.includes('guarda este mensaje'), 'la confirmación pide guardar el link');
     }
     r = await call('PATCH', `/api/admin/appointments/${manualId}`, { status: 'confirmed' }, { auth: true });
     assert.strictEqual(r.status, 409);
@@ -332,16 +333,30 @@ async function runTests() {
     await rem.tick(S.startMs(remDay, '16:30') - 30 * 60000);
     assert.strictEqual(forLaura().length, 2);
     assert.ok(forLaura()[1].text.includes('4:30 p. m.'));
-    // cita agendada hace pocos minutos para dentro de 50 min: no se manda el recordatorio (acaba de recibir la confirmación)
-    const soon = new Date(Date.now() + 50 * 60000 - 5 * 3600000).toISOString();
+    // cita agendada hace pocos minutos para dentro de 45 min: el recordatorio sale igual (ya está dentro de la hora)
+    const soon = new Date(Date.now() + 45 * 60000 - 5 * 3600000).toISOString();
     const soonAppt = await repo.insertAppointment({ name: 'Pedro Reciente', phone: '573004445555', date: soon.slice(0, 10), time: soon.slice(11, 16), service: 'x' });
     await rem.tick(Date.now());
-    assert.strictEqual(sent.filter((m) => m.chatId === '573004445555@c.us').length, 0, 'recién agendada: sin recordatorio');
-    cfgm.waha.skipIfBookedWithinMin = 0;
-    await rem.tick(Date.now());
-    assert.strictEqual(sent.filter((m) => m.chatId === '573004445555@c.us').length, 1, 'con la regla apagada sí se manda');
-    cfgm.waha.skipIfBookedWithinMin = 90;
+    assert.strictEqual(sent.filter((m) => m.chatId === '573004445555@c.us').length, 1, 'recién agendada dentro de la hora: se manda');
     await repo.deleteAppointment(soonAppt.id);
+    // con REMINDER_SKIP_IF_BOOKED_WITHIN_MIN > 0 no se manda a las recién agendadas
+    cfgm.waha.skipIfBookedWithinMin = 90;
+    const soon2 = await repo.insertAppointment({ name: 'Ana Reciente', phone: '573004446666', date: soon.slice(0, 10), time: soon.slice(11, 16), service: 'x' });
+    await rem.tick(Date.now());
+    assert.strictEqual(sent.filter((m) => m.chatId === '573004446666@c.us').length, 0, 'con la regla activada: sin recordatorio');
+    cfgm.waha.skipIfBookedWithinMin = 0;
+    await repo.deleteAppointment(soon2.id);
+    // el admin agenda fuera del horario (11:00 p. m.) a las 10:15 p. m.: le llega el recordatorio
+    {
+      const night = S.addDays(today, 6);
+      r = await call('POST', '/api/admin/appointments', { name: 'Noche Admin', phone: '3007778888', date: night, time: '23:00' }, { auth: true });
+      assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+      await rem.tick(S.startMs(night, '23:00') - 45 * 60000);
+      const forNight = sent.filter((m) => m.chatId === '573007778888@c.us');
+      assert.strictEqual(forNight.length, 1, 'cita de las 11 p. m. creada por el admin: recordatorio');
+      assert.ok(forNight[0].text.includes('11:00 p. m.') && forNight[0].text.includes('/cita/'), forNight[0].text);
+      await repo.deleteAppointment(r.json.appointment.id);
+    }
     await repo.deleteAppointment(remAppt.id);
     // turno fijo con celular: recordatorio una vez por fecha
     const fx = await repo.addFixed({ dow: S.dayOfWeek(remDay), time: '17:30', name: 'Don Fijo', phone: '573115556666', every: 1, start_date: remDay });
@@ -373,6 +388,51 @@ async function runTests() {
     assert.strictEqual(await require('../src/cleanup').purge(today), 1);
     assert.strictEqual(await repo.getAppointment(old4.id), undefined);
     assert.ok(await repo.getAppointment(old3.id));
+
+    // Notificaciones push a los admin
+    {
+      r = await call('GET', '/api/admin/push/key', null, { auth: true });
+      assert.strictEqual(r.status, 200);
+      assert.match(r.json.publicKey, /^[\w-]{80,}$/);
+      const again = (await call('GET', '/api/admin/push/key', null, { auth: true })).json.publicKey;
+      assert.strictEqual(again, r.json.publicKey, 'la clave pública no cambia');
+      assert.strictEqual((await call('GET', '/api/admin/push/key')).status, 401, 'solo admin');
+      r = await call('POST', '/api/admin/push/subscribe', { subscription: { endpoint: 'http://malo', keys: {} } }, { auth: true });
+      assert.strictEqual(r.status, 400);
+      const fakeSub = {
+        endpoint: 'https://127.0.0.1:9/push/abc',
+        keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' },
+      };
+      r = await call('POST', '/api/admin/push/subscribe', { subscription: fakeSub }, { auth: true });
+      assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+      assert.strictEqual((await repo.listPushSubs()).length, 1);
+      // una reserva con un dispositivo que no responde: la reserva sale igual
+      const pd = cal.days.filter((x) => x.open).at(-1);
+      const pfree = (await call('GET', `/api/slots?date=${pd.date}`)).json.slots.find((x) => x.available);
+      if (pfree) {
+        r = await call('POST', '/api/appointments', { name: 'Con Push', phone: '3009990000', date: pd.date, time: pfree.time, service: 'corte-premium' });
+        assert.strictEqual(r.status, 201, JSON.stringify(r.json));
+      }
+      r = await call('POST', '/api/admin/push/test', null, { auth: true });
+      assert.strictEqual(r.status, 200);
+      assert.strictEqual(r.json.sent, 0, 'el dispositivo falso no la recibe, pero no rompe nada');
+      r = await call('POST', '/api/admin/push/unsubscribe', { endpoint: fakeSub.endpoint }, { auth: true });
+      assert.strictEqual(r.status, 200);
+      assert.strictEqual((await repo.listPushSubs()).length, 0);
+      const sw = await fetch(base + '/admin/sw.js');
+      assert.strictEqual(sw.status, 200);
+      assert.ok((await sw.text()).includes('showNotification'));
+      assert.strictEqual((await fetch(base + '/admin/manifest.webmanifest')).status, 200);
+    }
+
+    // Sesión del admin: larga (no se cierra sola)
+    {
+      const lr = await fetch(base + '/api/admin/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'ruiz', pass: 'ruiz' }),
+      });
+      const maxAge = Number(((lr.headers.get('set-cookie') || '').match(/Max-Age=(\d+)/) || [])[1]);
+      assert.ok(maxAge >= 399 * 86400, `la cookie dura ~400 días (Max-Age=${maxAge})`);
+    }
 
     // Salud del servidor
     assert.strictEqual((await fetch(base + '/healthz')).status, 200);

@@ -47,9 +47,10 @@ module.exports = {
     apiKey: process.env.WAHA_API_KEY || '',
     // Minutos antes de la cita en que se manda el recordatorio
     reminderMinutes: num(process.env.REMINDER_MINUTES_BEFORE, 60),
-    // No mandar recordatorio si la cita se agendó (o cambió) con menos de estos minutos de anticipación
-    // (el cliente acaba de recibir la confirmación). 0 = mandarlo siempre.
-    skipIfBookedWithinMin: num(process.env.REMINDER_SKIP_IF_BOOKED_WITHIN_MIN, 90),
+    // 0 (por defecto) = el recordatorio se manda siempre que la cita esté dentro de la última hora,
+    // aunque se haya agendado hace poco (ej. a las 10:15 p. m. para las 11:00 p. m.: sale de una vez).
+    // Si pones N > 0, no se manda a citas agendadas (o cambiadas) con menos de N minutos de anticipación.
+    skipIfBookedWithinMin: num(process.env.REMINDER_SKIP_IF_BOOKED_WITHIN_MIN, 0),
     // Pausa (aprox.) entre un mensaje y otro cuando hay varios, para no parecer un robot
     pauseMs: num(process.env.REMINDER_PAUSE_MS, 2500),
   },

@@ -12,6 +12,8 @@
 /* Barra superior */
 .topbar { border-bottom: 1px solid var(--line); background: var(--bg); }
 .topbar .wrap { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+#pushBtn.is-on { border-color: var(--gold); color: var(--gold); }
 .who b { font-family: var(--font-head); letter-spacing: 0.1em; text-transform: uppercase; font-size: 18px; margin-right: 12px; }
 .who span { color: var(--muted); font-size: 15px; }
 
@@ -96,7 +98,8 @@ main.wrap { padding: 24px 0 80px; }
 .wk-day small { display: block; color: var(--gold); font-size: 12px; font-weight: 600; }
 .wk-day.is-today { border-bottom-color: var(--gold); }
 .wk-cell, .wk-item { border-radius: 3px; font: inherit; text-align: left; min-width: 0; }
-.wk-cell.is-closed { background: repeating-linear-gradient(135deg, #1f1f1f 0 4px, #282828 4px 8px); }
+.wk-cell.is-closed { background: repeating-linear-gradient(135deg, #1f1f1f 0 4px, #282828 4px 8px); border: 1px solid transparent; color: transparent; font-size: 20px; text-align: center; cursor: pointer; }
+.wk-cell.is-closed:hover { border-color: var(--gold-dark); color: var(--gold); }
 .wk-cell.is-past { background: #222; border: 1px solid #2c2c2c; }
 .wk-cell.is-free { background: #2e2e2e; border: 1px dashed #484848; color: #6c6a65; font-size: 20px; text-align: center; cursor: pointer; }
 .wk-cell.is-free:hover { border-color: var(--gold); color: var(--gold); }
@@ -189,6 +192,7 @@ dialog h2 { font-size: 24px; margin-bottom: 18px; }
   .view-btn { font-size: 13px; letter-spacing: 0.08em; padding: 10px 6px; }
   .wk-daybtn small { font-size: 9px; }
   .who span { display: none; }
+  .top-actions .btn-sm { padding: 7px 9px; font-size: 12px; }
 }
 
 /* ---------- Panel en celular: más compacto ---------- */

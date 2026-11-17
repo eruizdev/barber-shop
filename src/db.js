@@ -95,6 +95,19 @@ CREATE TABLE IF NOT EXISTS fixed_reminders (
   date TEXT NOT NULL,
   PRIMARY KEY (fixed_id, date)
 );
+-- Ajustes internos (ej. claves VAPID de las notificaciones push, generadas una sola vez)
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+-- Navegadores/celulares de los admin que activaron las notificaciones de citas nuevas
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  admin_user TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 // Turnos fijos iniciales (solo la primera vez que se crea la tabla)
@@ -285,6 +298,20 @@ const bumpReminderAttempts = (id) => q('UPDATE appointments SET reminder_attempt
 const fixedRemindedIds = async (date) => new Set((await q('SELECT fixed_id FROM fixed_reminders WHERE date = $1', [date])).rows.map((r) => r.fixed_id));
 const markFixedReminded = (id, date) => q('INSERT INTO fixed_reminders (fixed_id, date) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, date]);
 
+// ---------- ajustes y notificaciones push ----------
+const getSetting = async (key) => (await q('SELECT value FROM settings WHERE key = $1', [key])).rows[0]?.value ?? null;
+/** Guarda el valor solo si no existe; devuelve el que quedó (si dos copias arrancan a la vez, gana una). */
+const initSetting = async (key, value) => {
+  await q('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING', [key, value]);
+  return getSetting(key);
+};
+const savePushSub = (s, user) => q(
+  `INSERT INTO push_subscriptions (endpoint, p256dh, auth, admin_user) VALUES ($1, $2, $3, $4)
+   ON CONFLICT (endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, admin_user = EXCLUDED.admin_user`,
+  [s.endpoint, s.p256dh, s.auth, user]);
+const deletePushSub = (endpoint) => q('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+const listPushSubs = async () => (await q('SELECT endpoint, p256dh, auth, admin_user FROM push_subscriptions')).rows;
+
 // ---------- limpieza ----------
 /** Borra citas, bloqueos y marcas de turnos fijos con fecha anterior a `date`. Devuelve cuántas citas borró. */
 async function purgeBefore(date) {
@@ -302,4 +329,5 @@ module.exports = {
   listFixed, getFixed, addFixed, updateFixed, deleteFixed, skipFixed, unskipFixed,
   pendingReminders, markReminderSent, bumpReminderAttempts, fixedRemindedIds, markFixedReminded,
   purgeBefore,
+  getSetting, initSetting, savePushSub, deletePushSub, listPushSubs,
 };

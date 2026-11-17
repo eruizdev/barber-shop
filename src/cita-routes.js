@@ -12,6 +12,7 @@ const cfg = require('./config');
 const repo = require('./db');
 const S = require('./schedule');
 const notify = require('./notify');
+const push = require('./push');
 
 class CitaError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -105,6 +106,7 @@ function citaRoutes() {
         if (e && e.code === '23505') throw new CitaError(409, 'Esa hora ya no está disponible. Elige otra.');
         throw e;
       }
+      push.notifyAppointment(after, 'changed'); // aviso a los admin (no se espera)
       const whatsappSent = await notify.sendConfirmation(after, req, { changed: true });
       res.json({ appointment: publicView(after), whatsappSent });
     } catch (e) { next(e); }
@@ -115,6 +117,7 @@ function citaRoutes() {
       const appt = req.appt;
       if (!canModify(appt)) throw new CitaError(409, 'Esta cita ya no se puede cancelar. Escríbenos por WhatsApp.');
       const after = await repo.updateAppointment(appt.id, { status: 'cancelled' });
+      push.notifyAppointment(after, 'cancelled'); // aviso a los admin (no se espera)
       res.json({ appointment: publicView(after) });
     } catch (e) { next(e); }
   });

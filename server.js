@@ -11,6 +11,7 @@ const auth = require('./src/auth');
 const reminders = require('./src/reminders');
 const cleanup = require('./src/cleanup');
 const notify = require('./src/notify');
+const push = require('./src/push');
 const { citaRoutes } = require('./src/cita-routes');
 const S = require('./src/schedule');
 const services = require('./src/services');
@@ -167,6 +168,7 @@ function createApp() {
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
       const appt = await book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
+      push.notifyAppointment(appt, 'new'); // aviso al celular de los admin (no se espera)
       // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
       const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
@@ -202,6 +204,26 @@ function createApp() {
   admin.use(auth.requireAdmin);
 
   admin.get('/me', (req, res) => res.json({ user: req.admin, today: S.nowParts().date }));
+
+  // ---------- Admin: notificaciones push de citas nuevas ----------
+  admin.get('/push/key', async (req, res, next) => {
+    try { res.json({ publicKey: await push.publicKey() }); } catch (e) { next(e); }
+  });
+  admin.post('/push/subscribe', async (req, res, next) => {
+    try {
+      if (!await push.subscribe(req.body && req.body.subscription, req.admin)) throw bad('Suscripción no válida');
+      res.status(201).json({ ok: true });
+    } catch (e) { next(e); }
+  });
+  admin.post('/push/unsubscribe', async (req, res, next) => {
+    try { await push.unsubscribe(req.body && req.body.endpoint); res.json({ ok: true }); } catch (e) { next(e); }
+  });
+  admin.post('/push/test', async (req, res, next) => {
+    try {
+      const sent = await push.sendAll({ title: '🔔 Notificaciones activas', body: 'Así te llegará el aviso cada vez que entre una cita.', tag: 'prueba', url: '/admin/' });
+      res.json({ sent });
+    } catch (e) { next(e); }
+  });
 
   admin.get('/appointments', async (req, res, next) => {
     try {
@@ -438,6 +460,15 @@ function createApp() {
     res.sendFile(adminHtml);
   });
   app.use('/admin/assets', express.static(path.join(__dirname, 'admin-ui', 'assets'), { index: false, maxAge: 0 }));
+  // Service worker (recibe las notificaciones push) y manifest (para instalar el panel como app en el celular)
+  app.get('/admin/sw.js', (req, res) => {
+    res.set({ 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/admin/' });
+    res.sendFile(path.join(__dirname, 'admin-ui', 'sw.js'));
+  });
+  app.get('/admin/manifest.webmanifest', (req, res) => {
+    res.type('application/manifest+json').set('Cache-Control', 'no-cache');
+    res.sendFile(path.join(__dirname, 'admin-ui', 'manifest.webmanifest'));
+  });
 
   // Página del link que recibe el cliente por WhatsApp
   const citaHtml = path.join(__dirname, 'public', 'cita.html');

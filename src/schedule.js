@@ -5,8 +5,8 @@ const { holidayName } = require('./holidays');
 const OFFSET_MS = 5 * 3600 * 1000;
 const SLOT_MIN = 60; // 1 reserva = 1 hora
 
-// Lunes a miércoles y festivos: 8-11 y 14-21
-const RANGES_MON_WED = [[8 * 60, 11 * 60], [14 * 60, 21 * 60]]; // última cita de la tarde: 8:00 p. m.
+// Lunes a miércoles y festivos: 8-12 y 14-21
+const RANGES_MON_WED = [[8 * 60, 12 * 60], [14 * 60, 21 * 60]]; // última cita de la mañana: 11:00 a. m.; de la tarde: 8:00 p. m.
 // Jueves a sábado: continuo 8-21
 const RANGES_THU_SAT = [[8 * 60, 21 * 60]]; // última cita: 8:00 p. m.
 // Domingo: cerrado (salvo que sea festivo: usa el horario de festivos)

@@ -6,6 +6,12 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Panel | Sebas Barber</title>
   <link rel="icon" href="/img/logo-192.png">
+  <link rel="manifest" href="/admin/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/img/logo-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Panel Barber">
+  <meta name="theme-color" content="#141414">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap">
@@ -39,7 +45,10 @@
     <header class="topbar">
       <div class="wrap">
         <div class="who"><b>Sebas Barber</b><span id="whoami"></span></div>
-        <button class="btn btn-sm btn-outline" id="logout" type="button">Salir</button>
+        <div class="top-actions">
+          <button class="btn btn-sm btn-outline" id="pushBtn" type="button" hidden>🔔 Notificaciones</button>
+          <button class="btn btn-sm btn-outline" id="logout" type="button">Salir</button>
+        </div>
       </div>
     </header>
 
@@ -92,7 +101,7 @@
           <span><i class="lg-appt"></i>Cita reservada</span>
           <span><i class="lg-fixed"></i>Turno fijo (en la web sale BLOQUEADA)</span>
           <span><i class="lg-free"></i>Libre: toca para agendar</span>
-          <span><i class="lg-closed"></i>Cerrado</span>
+          <span><i class="lg-closed"></i>Fuera del horario (cerrado en la web; aquí puedes agendar igual)</span>
         </div>
         <div class="wk-days" id="wkDays" aria-label="Día"></div>
         <div class="wk-scroll"><div class="wk" id="wk"></div></div>
@@ -142,7 +151,7 @@
         <div class="field"><label for="mDate">Fecha</label><input id="mDate" type="date" required></div>
         <div class="field"><label for="mTime">Hora</label><input id="mTime" type="time" step="900" required></div>
         <div class="field full">
-          <label>Horas del horario normal</label>
+          <label>Horas del horario normal <small class="muted">(o escribe cualquier hora arriba, ej. 10:00 p. m.)</small></label>
           <div class="chips" id="mChips"></div>
           <p class="hint" id="mHint"></p>
         </div>

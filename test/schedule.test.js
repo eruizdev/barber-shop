@@ -19,7 +19,7 @@ assert.strictEqual(holidayName('2027-03-26'), 'Viernes Santo');
 // ---- Horarios
 const lun = S.dayInfo('2026-11-09'); // lunes normal
 assert.strictEqual(lun.holiday, null);
-assert.deepStrictEqual(lun.starts, ['08:00', '09:00', '10:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']);
+assert.deepStrictEqual(lun.starts, ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']);
 
 const mie = S.dayInfo('2026-11-11'); // miércoles
 assert.deepStrictEqual(mie.starts, lun.starts);
@@ -35,7 +35,7 @@ const fest = S.dayInfo('2026-11-16');
 assert.strictEqual(fest.holiday, 'Independencia de Cartagena');
 assert.deepStrictEqual(fest.starts, lun.starts);
 assert.deepStrictEqual(S.dayInfo('2026-04-03').starts, lun.starts);
-assert.strictEqual(S.dayInfo('2026-12-25').starts.length, 10); // viernes festivo
+assert.strictEqual(S.dayInfo('2026-12-25').starts.length, 11); // viernes festivo
 
 // ---- Ventana de 2 semanas (ancla lunes 2026-11-02)
 let w = S.bookingWindow('2026-11-06', '2026-11-02', 10 * 60);
@@ -79,11 +79,12 @@ assert.strictEqual(S.slotsForMinutes(45), 1);
 assert.strictEqual(S.slotsForMinutes(70), 1);
 assert.strictEqual(S.slotsForMinutes(71), 2);
 assert.strictEqual(S.slotsForMinutes(90), 2);
-let two = S.computeSlots('2026-11-10', { nowMs: now, need: 2 }); // martes: 8-11 y 14-21
+let two = S.computeSlots('2026-11-10', { nowMs: now, need: 2 }); // martes: 8-12 y 14-21
 const st = (arr, t) => arr.find((x) => x.time === t);
 assert.strictEqual(st(two, '08:00').available, true);
 assert.strictEqual(st(two, '09:00').available, true);
-assert.strictEqual(st(two, '10:00').reason, 'short'); // cierra a las 11
+assert.strictEqual(st(two, '10:00').available, true); // 10:00 a 12:00 cabe
+assert.strictEqual(st(two, '11:00').reason, 'short'); // cierra a las 12
 assert.strictEqual(st(two, '18:00').available, true);
 assert.strictEqual(st(two, '19:00').available, true); // 19:00 a 21:00 cabe
 assert.strictEqual(st(two, '20:00').reason, 'short'); // cierra a las 21

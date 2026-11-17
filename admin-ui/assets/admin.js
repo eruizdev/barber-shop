@@ -32,8 +32,78 @@
     $('login').hidden = true;
     $('app').hidden = false;
     $('whoami').textContent = `Sesión: ${me.user}`;
+    initPush();
     resetFixedForm();
     setPreset('14');
+  }
+
+  // ---------- notificaciones push: aviso al celular cuando entra una cita ----------
+  const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let swReg = null;
+
+  function b64ToBytes(b64) {
+    const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(s, (c) => c.charCodeAt(0));
+  }
+  function setPushBtn(on) {
+    const b = $('pushBtn');
+    b.hidden = false;
+    b.classList.toggle('is-on', on);
+    b.textContent = on ? '🔔 Notificaciones activas' : '🔕 Activar notificaciones';
+  }
+  async function initPush() {
+    if (!pushSupported) {
+      // iPhone: solo funciona con el panel instalado en la pantalla de inicio
+      if (isIos && !standalone) { $('pushBtn').hidden = false; $('pushBtn').textContent = '🔕 Activar notificaciones'; }
+      return;
+    }
+    try {
+      swReg = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' });
+      const sub = await swReg.pushManager.getSubscription();
+      setPushBtn(Boolean(sub) && Notification.permission === 'granted');
+      // mantener la suscripción guardada en el servidor (por si se borró o cambió)
+      if (sub && Notification.permission === 'granted') {
+        call('/api/admin/push/subscribe', { method: 'POST', body: { subscription: sub.toJSON() } }).catch(() => {});
+      }
+    } catch (_) { /* sin service worker: no se muestra el botón */ }
+  }
+  async function enablePush() {
+    if (!pushSupported) {
+      alert(isIos
+        ? 'En iPhone primero instala el panel: toca Compartir (□↑) → "Agregar a pantalla de inicio". Luego abre el panel desde ese ícono y activa las notificaciones.'
+        : 'Este navegador no permite notificaciones. Usa Chrome en Android o en el computador.');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Permiso denegado. Actívalo en la configuración del navegador para este sitio.', true); return; }
+    try {
+      const { publicKey } = await call('/api/admin/push/key');
+      let sub = await swReg.pushManager.getSubscription();
+      if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+      await call('/api/admin/push/subscribe', { method: 'POST', body: { subscription: sub.toJSON() } });
+      setPushBtn(true);
+      await call('/api/admin/push/test', { method: 'POST' });
+      toast('Listo: te llegará un aviso con cada cita nueva');
+    } catch (e) { toast('No se pudieron activar: ' + e.message, true); }
+  }
+  async function disablePush() {
+    if (!confirm('¿Dejar de recibir avisos de citas nuevas en este dispositivo?')) return;
+    try {
+      const sub = swReg && await swReg.pushManager.getSubscription();
+      if (sub) {
+        await call('/api/admin/push/unsubscribe', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {});
+        await sub.unsubscribe();
+      }
+      setPushBtn(false);
+      toast('Notificaciones desactivadas en este dispositivo');
+    } catch (e) { toast(e.message, true); }
+  }
+  $('pushBtn').addEventListener('click', () => ($('pushBtn').classList.contains('is-on') ? disablePush() : enablePush()));
+  // al tocar una notificación con el panel abierto: recargar los datos
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'refresh') refresh(); });
   }
 
   // ---------- vistas: lista / calendario / turnos fijos ----------
@@ -261,8 +331,9 @@
 
   // ---------- calendario semanal ----------
   const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const FIRST = 8 * 60;                 // 8:00
-  const ROWS = 13;                      // 8:00 ... 20:00 (última cita 8:00 p. m.)
+  // De 6:00 a. m. a 11:00 p. m.: el admin puede agendar a cualquier hora, aunque esté fuera del horario
+  const FIRST = 6 * 60;                 // 6:00
+  const ROWS = 18;                      // 6:00 ... 23:00
   const toMin = (t) => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; };
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   const mondayOf = (d) => addDays(d, -((SB.dow(d) + 6) % 7));
@@ -356,10 +427,12 @@
         const s = FIRST + r * 60;
         const open = d.ranges.some(([a, b]) => s >= a && s + 60 <= b);
         const past = d.date < today;
-        cells.push(open && !past
-          ? h('button', { type: 'button', class: 'wk-cell is-free', style: at(r), title: 'Agendar aquí',
-            onclick: () => openForm(null, { date: d.date, time: hhmm(s) }) }, '+')
-          : h('div', { class: 'wk-cell ' + (open ? 'is-past' : 'is-closed'), style: at(r) }));
+        if (past) { cells.push(h('div', { class: 'wk-cell is-past', style: at(r) })); continue; }
+        const book = () => openForm(null, { date: d.date, time: hhmm(s) });
+        cells.push(open
+          ? h('button', { type: 'button', class: 'wk-cell is-free', style: at(r), title: 'Agendar aquí', onclick: book }, '+')
+          // fuera del horario: en la web está cerrado, pero el admin puede agendar igual
+          : h('button', { type: 'button', class: 'wk-cell is-closed', style: at(r), title: 'Fuera del horario: agendar igual', onclick: book }, '+'));
       }
     });
     wk.replaceChildren(...cells);

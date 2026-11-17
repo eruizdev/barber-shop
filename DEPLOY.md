@@ -96,11 +96,23 @@ Todos salen desde **tu WhatsApp Business**, a números colombianos (el sistema a
 
 - **Al reservar** (o al cambiar la cita desde su link): confirmación con el día, la hora, el servicio y el **link** para ver, cambiar o cancelar.
 - **1 hora antes de la cita: recordatorio.** Lee el celular de cada cita del calendario y de los **turnos fijos que tengan celular** (el de los fijos se agrega en el panel → *Turnos fijos → Editar*). Cada recordatorio sale **una sola vez**. Si la cita se reprograma, vuelve a avisar.
-- Si alguien agenda una cita para dentro de menos de ~90 minutos, **no** recibe recordatorio (acaba de recibir la confirmación). Se cambia con `REMINDER_SKIP_IF_BOOKED_WITHIN_MIN` en `.env` (`0` = mandarlo siempre).
+- Si la cita se agenda cuando ya falta menos de 1 hora (ej. el admin agenda a las 10:15 p. m. una cita de las 11:00 p. m.), el recordatorio **sale de una vez**. Si prefieres no mandarlo a las citas recién agendadas, pon en `.env` `REMINDER_SKIP_IF_BOOKED_WITHIN_MIN=90` (minutos).
+- Las citas que agrega el admin desde el panel también reciben el recordatorio, **a cualquier hora** (aunque sea fuera del horario, ej. 10:00 p. m.).
 - Los minutos de anticipación se cambian con `REMINDER_MINUTES_BEFORE` (por defecto `60`).
 - Si el WhatsApp se desvincula, la app **no pierde los recordatorios**: espera y avisa en el log. Los manda cuando lo vuelvas a vincular, siempre que todavía falte tiempo para la cita.
 
 **Probar el recordatorio de punta a punta:** en el panel crea una cita con **tu número** para dentro de ~2 horas; 1 hora antes te llega el mensaje.
+
+## 5b. Avisos al celular del admin cuando entra una cita
+
+El panel `/admin` puede mandar una **notificación al celular** cada vez que un cliente reserva, cambia o cancela su cita desde la web (aunque el panel esté cerrado). No hay que configurar nada en el servidor: las claves se crean solas.
+
+- **Android (Chrome):** entra a `https://tudominio.com/admin`, toca **🔕 Activar notificaciones** y acepta el permiso. Llega un aviso de prueba.
+- **iPhone (iOS 16.4 o más nuevo):** en Safari abre `https://tudominio.com/admin` → **Compartir (□↑) → Agregar a pantalla de inicio**. Abre el panel **desde ese ícono**, toca **Activar notificaciones** y acepta.
+- **Computador (Chrome/Edge):** igual que Android; llegan mientras el navegador esté abierto.
+
+Cada admin lo activa en cada dispositivo donde quiera recibir avisos. Para quitarlo, toca **🔔 Notificaciones activas**.
+La sesión del panel **no se cierra sola** (dura 400 días y se renueva cada vez que entras); solo se cierra con **Salir**.
 
 ## 6. Día a día
 
