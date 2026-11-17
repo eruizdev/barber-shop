@@ -1,0 +1,84 @@
+# Todo en uno: la app + Postgres + WAHA (WhatsApp) + Caddy (HTTPS automático).
+# Arrancar:   docker compose up -d --build        (o bash deploy/install.sh la primera vez)
+# Variables:  se leen del archivo .env (lo crea deploy/install.sh; plantilla en deploy/env.template)
+name: sebasbarber
+
+services:
+  # ---------- Base de datos ----------
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sebasbarber
+      POSTGRES_USER: sebasbarber
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en el archivo .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sebasbarber -d sebasbarber"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # (sin "ports": Postgres solo se ve desde dentro de Docker, nunca desde internet)
+
+  # ---------- WhatsApp (WAHA): envía los mensajes desde tu WhatsApp Business ----------
+  waha:
+    image: devlikeapro/waha:noweb        # motor NOWEB: sin navegador, gasta poca memoria
+    restart: unless-stopped
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WAHA_API_KEY: ${WAHA_API_KEY:?Falta WAHA_API_KEY en el archivo .env}
+      WAHA_DASHBOARD_ENABLED: "true"
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USER:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:?Falta WAHA_DASHBOARD_PASSWORD en el archivo .env}
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WHATSAPP_START_SESSION: default            # arranca solo la sesión "default" al encender
+      WHATSAPP_RESTART_ALL_SESSIONS: "True"
+    volumes:
+      - waha_sessions:/app/.sessions             # aquí queda guardado el vínculo con tu WhatsApp
+    ports:
+      - "127.0.0.1:3001:3000"                    # panel de WAHA: SOLO desde el propio servidor (ver DEPLOY.md)
+
+  # ---------- La app ----------
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      waha:
+        condition: service_started
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgres://sebasbarber:${DB_PASSWORD}@db:5432/sebasbarber
+      WAHA_URL: http://waha:3000
+      TRUST_PROXY: "true"        # va detrás de Caddy
+      COOKIE_SECURE: "true"      # la cookie del admin solo viaja por HTTPS
+      PUBLIC_URL: https://${DOMAIN:?Falta DOMAIN en el archivo .env}
+      WHATSAPP_ENABLED: "true"
+    # (sin "ports": solo Caddy habla con la app)
+
+  # ---------- HTTPS: Caddy saca y renueva el certificado solo (Let's Encrypt) ----------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  waha_sessions:
+  caddy_data:
+  caddy_config:

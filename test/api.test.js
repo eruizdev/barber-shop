@@ -1,19 +1,19 @@
 'use strict';
-// Prueba de extremo a extremo con una base de datos temporal.
+// Prueba de extremo a extremo con un Postgres real (temporal) y un WAHA falso (para los mensajes de WhatsApp).
 const assert = require('assert');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+const http = require('http');
+const { startTestDb } = require('./helpers/postgres');
 
-const tmpDb = path.join(os.tmpdir(), `sb-test-${process.pid}.db`);
-process.env.DB_PATH = tmpDb;
 process.env.SESSION_SECRET = 'test-secret';
 process.env.ADMIN1_USER = 'sebasraigoza';
 process.env.ADMIN1_PASS = 'TestPass123!';
 process.env.ADMIN2_USER = 'ruiz';
 process.env.ADMIN2_PASS = 'ruiz';
 process.env.MIN_LEAD_MINUTES = '0';
-process.env.WHATSAPP_ENABLED = 'false'; // nunca enviar mensajes reales en pruebas
+process.env.DB_POOL_MAX = '8';
+process.env.BOOK_LIMIT_PER_HOUR = '1000';
+process.env.REMINDER_PAUSE_MS = '0';
+process.env.PUBLIC_URL = 'https://barberia.test';
 
 const S = require('../src/schedule');
 // Ancla: lunes de esta semana (hora Colombia) => ventana = esta semana + la siguiente
@@ -21,12 +21,35 @@ const today = S.nowParts().date;
 const dow = S.dayOfWeek(today);
 process.env.BOOKING_ANCHOR = S.addDays(today, -((dow + 6) % 7));
 
-const { createApp } = require('../server');
+let pgdb, waha, server, repo;
+const sent = [];              // mensajes que recibió el WAHA falso
+let wahaStatus = 'WORKING';   // estado de la sesión de WhatsApp del WAHA falso
 
-// Cierra la base antes de borrarla (en Windows no se puede borrar un archivo abierto)
-function cleanup() {
-  try { require('../src/db').db.close(); } catch {}
-  for (const f of [tmpDb, tmpDb + '-wal', tmpDb + '-shm']) fs.rmSync(f, { force: true });
+async function startWaha() {
+  waha = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url === '/api/sendText' && req.method === 'POST') {
+        const m = JSON.parse(body); m.apiKey = req.headers['x-api-key']; sent.push(m);
+        return res.end(JSON.stringify({ id: { _serialized: 'false_x@c.us_ABC' } }));
+      }
+      if (req.url === '/api/sessions/default') return res.end(JSON.stringify({ name: 'default', status: wahaStatus }));
+      res.statusCode = 404; res.end('{}');
+    });
+  });
+  await new Promise((r) => waha.listen(0, '127.0.0.1', r));
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.WAHA_URL = `http://127.0.0.1:${waha.address().port}`;
+  process.env.WAHA_API_KEY = 'clave-de-prueba';
+}
+
+async function finish() {
+  await new Promise((r) => server.close(r));
+  await repo.close();
+  await new Promise((r) => waha.close(r));
+  await pgdb.stop();
 }
 
 let base, cookie = '';
@@ -43,7 +66,7 @@ async function call(method, url, body, { auth = false } = {}) {
   return { status: res.status, json, res };
 }
 
-const server = createApp().listen(0, async () => {
+async function runTests() {
   base = `http://127.0.0.1:${server.address().port}`;
   try {
     // Calendario
@@ -146,9 +169,17 @@ const server = createApp().listen(0, async () => {
     // Reactivar choca si alguien tomó la hora
     r = await call('POST', '/api/appointments', { name: 'Nuevo', phone: '3151234567', date: day.date, time: t1, service: 'corte-premium' });
     assert.strictEqual(r.status, 201);
-    assert.strictEqual(r.json.whatsappSent, false);
-    assert.match(r.json.manageUrl, /\/cita\/[\w-]{32}$/);
+    assert.strictEqual(r.json.whatsappSent, true);
+    assert.match(r.json.manageUrl, /^https:\/\/barberia\.test\/cita\/[\w-]{32}$/);
     const token = r.json.manageUrl.split('/cita/')[1];
+    {
+      const m = sent[sent.length - 1];
+      assert.strictEqual(m.chatId, '573151234567@c.us', 'el número colombiano va con 57');
+      assert.strictEqual(m.session, 'default');
+      assert.strictEqual(m.apiKey, 'clave-de-prueba');
+      assert.ok(m.text.includes(r.json.manageUrl), 'el mensaje trae el link de la cita');
+      assert.ok(m.text.includes('quedó confirmada') && m.text.includes('Hola Nuevo'), m.text);
+    }
     r = await call('PATCH', `/api/admin/appointments/${manualId}`, { status: 'confirmed' }, { auth: true });
     assert.strictEqual(r.status, 409);
 
@@ -193,7 +224,8 @@ const server = createApp().listen(0, async () => {
       r = await call('POST', `/api/cita/${token}/reschedule`, { date: day.date, time: t3.time });
       assert.strictEqual(r.status, 200, JSON.stringify(r.json));
       assert.strictEqual(r.json.appointment.time, t3.time);
-      assert.strictEqual(r.json.whatsappSent, false);
+      assert.strictEqual(r.json.whatsappSent, true);
+      assert.ok(sent[sent.length - 1].text.includes('fue cambiada'));
       r = await call('GET', `/api/slots?date=${day.date}`);
       assert.strictEqual(r.json.slots.find((s) => s.time === t3.time).available, false);
     }
@@ -273,13 +305,77 @@ const server = createApp().listen(0, async () => {
       }
     }
 
+    // Recordatorio por WhatsApp 1 hora antes (WAHA)
+    const cfgm = require('../src/config');
+    const rem = require('../src/reminders');
+    const remDay = S.addDays(today, 5);
+    const remPhone = '573201112222';
+    const remAppt = await repo.insertAppointment({ name: 'Laura Gómez', phone: remPhone, date: remDay, time: '15:30', service: 'Corte premium · $24.000' });
+    const remStart = S.startMs(remDay, '15:30');
+    const forLaura = () => sent.filter((m) => m.chatId === `${remPhone}@c.us`);
+    await rem.tick(remStart - 90 * 60000);
+    assert.strictEqual(forLaura().length, 0, 'faltan 90 min: todavía no');
+    wahaStatus = 'SCAN_QR_CODE';
+    await rem.tick(remStart - 50 * 60000);
+    assert.strictEqual(forLaura().length, 0, 'WhatsApp sin vincular: no se manda ni se gastan intentos');
+    assert.strictEqual((await repo.getAppointment(remAppt.id)).reminder_attempts, 0);
+    wahaStatus = 'WORKING';
+    await rem.tick(remStart - 50 * 60000);
+    assert.strictEqual(forLaura().length, 1, 'a 50 min de la cita se manda el recordatorio');
+    assert.ok(forLaura()[0].text.includes('3:30 p. m.') && forLaura()[0].text.includes('Hola Laura'), forLaura()[0].text);
+    assert.ok(forLaura()[0].text.includes(`https://barberia.test/cita/${remAppt.manage_token}`), 'con el link para cambiarla');
+    await rem.tick(remStart - 40 * 60000);
+    assert.strictEqual(forLaura().length, 1, 'no se repite');
+    assert.strictEqual((await repo.getAppointment(remAppt.id)).reminder_sent, true);
+    // reprogramada: se vuelve a avisar
+    await repo.updateAppointment(remAppt.id, { time: '16:30', resetReminder: true });
+    await rem.tick(S.startMs(remDay, '16:30') - 30 * 60000);
+    assert.strictEqual(forLaura().length, 2);
+    assert.ok(forLaura()[1].text.includes('4:30 p. m.'));
+    // cita agendada hace pocos minutos para dentro de 50 min: no se manda el recordatorio (acaba de recibir la confirmación)
+    const soon = new Date(Date.now() + 50 * 60000 - 5 * 3600000).toISOString();
+    const soonAppt = await repo.insertAppointment({ name: 'Pedro Reciente', phone: '573004445555', date: soon.slice(0, 10), time: soon.slice(11, 16), service: 'x' });
+    await rem.tick(Date.now());
+    assert.strictEqual(sent.filter((m) => m.chatId === '573004445555@c.us').length, 0, 'recién agendada: sin recordatorio');
+    cfgm.waha.skipIfBookedWithinMin = 0;
+    await rem.tick(Date.now());
+    assert.strictEqual(sent.filter((m) => m.chatId === '573004445555@c.us').length, 1, 'con la regla apagada sí se manda');
+    cfgm.waha.skipIfBookedWithinMin = 90;
+    await repo.deleteAppointment(soonAppt.id);
+    await repo.deleteAppointment(remAppt.id);
+    // turno fijo con celular: recordatorio una vez por fecha
+    const fx = await repo.addFixed({ dow: S.dayOfWeek(remDay), time: '17:30', name: 'Don Fijo', phone: '573115556666', every: 1, start_date: remDay });
+    const fxStart = S.startMs(remDay, '17:30');
+    await rem.tick(fxStart - 30 * 60000);
+    await rem.tick(fxStart - 20 * 60000);
+    const forFijo = sent.filter((m) => m.chatId === '573115556666@c.us');
+    assert.strictEqual(forFijo.length, 1, 'turno fijo: un solo recordatorio');
+    assert.ok(forFijo[0].text.includes('Hola Don') && forFijo[0].text.includes('5:30 p. m.') && !forFijo[0].text.includes('/cita/'));
+    await repo.deleteFixed(fx.id);
+
+    // Dos reservas de la misma hora al mismo tiempo: solo una gana
+    {
+      let raceDate = null; let raceTime = null;
+      for (const d of cal.days.filter((x) => x.open)) {
+        const free = (await call('GET', `/api/slots?date=${d.date}&service=corte-premium`)).json.slots.find((x) => x.available);
+        if (free) { raceDate = d.date; raceTime = free.time; break; }
+      }
+      assert.ok(raceDate, 'no hay una hora libre para probar la carrera');
+      const attempt = (n) => call('POST', '/api/appointments', { name: `Carrera ${n}`, phone: `31200000${n}0`, date: raceDate, time: raceTime, service: 'corte-premium' });
+      const res = await Promise.all([attempt(1), attempt(2), attempt(3), attempt(4)]);
+      assert.strictEqual(res.filter((x) => x.status === 201).length, 1, JSON.stringify(res.map((x) => x.status)));
+      assert.strictEqual(res.filter((x) => x.status === 409).length, 3);
+    }
+
     // Limpieza: se borran las citas de hace más de 3 días; las de hace 3 días o menos se conservan
-    const repo = require('../src/db');
-    const old4 = repo.insertAppointment({ name: 'Vieja', phone: '573000000004', date: S.addDays(today, -4), time: '10:00', service: 'x' });
-    const old3 = repo.insertAppointment({ name: 'Reciente', phone: '573000000003', date: S.addDays(today, -3), time: '10:00', service: 'x' });
-    assert.strictEqual(require('../src/cleanup').purge(today), 1);
-    assert.strictEqual(repo.getAppointment(old4.id), undefined);
-    assert.ok(repo.getAppointment(old3.id));
+    const old4 = await repo.insertAppointment({ name: 'Vieja', phone: '573000000004', date: S.addDays(today, -4), time: '10:00', service: 'x' });
+    const old3 = await repo.insertAppointment({ name: 'Reciente', phone: '573000000003', date: S.addDays(today, -3), time: '10:00', service: 'x' });
+    assert.strictEqual(await require('../src/cleanup').purge(today), 1);
+    assert.strictEqual(await repo.getAppointment(old4.id), undefined);
+    assert.ok(await repo.getAppointment(old3.id));
+
+    // Salud del servidor
+    assert.strictEqual((await fetch(base + '/healthz')).status, 200);
 
     // Origen cruzado bloqueado
     const x = await fetch(base + '/api/admin/logout', { method: 'POST', headers: { Origin: 'https://malo.example', Cookie: cookie } });
@@ -297,11 +393,21 @@ const server = createApp().listen(0, async () => {
     assert.strictEqual((await fetch(base + '/.env')).status, 404);
 
     console.log('api.test.js OK');
-    server.close(); cleanup();
-    process.exit(0);
+    await finish();
+    process.exitCode = 0;
   } catch (e) {
     console.error('FALLÓ:', e);
-    server.close(); cleanup();
-    process.exit(1);
+    await finish().catch(() => {});
+    process.exitCode = 1;
   }
-});
+}
+
+(async () => {
+  pgdb = await startTestDb();
+  process.env.DATABASE_URL = pgdb.url;
+  await startWaha();
+  const { createApp } = require('../server');
+  repo = require('../src/db');
+  await repo.init();
+  server = createApp().listen(0, () => { runTests(); });
+})().catch((e) => { console.error('No se pudo preparar la prueba:', e); process.exit(1); });

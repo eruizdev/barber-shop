@@ -1,0 +1,6 @@
+# Caddy: pone HTTPS (certificado gratis y automático) y reenvía todo a la app.
+# {$DOMAIN} sale del archivo .env. El tráfico HTTP (puerto 80) se redirige solo a HTTPS.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
