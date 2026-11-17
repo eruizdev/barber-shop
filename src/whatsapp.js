@@ -1,40 +1,50 @@
 'use strict';
-// Cliente mínimo de WhatsApp Cloud API (Meta).
-// Los mensajes que inicia el negocio deben ser plantillas aprobadas en
-// WhatsApp Manager (categoría UTILITY). Docs: developers.facebook.com/docs/whatsapp/cloud-api
+// Cliente de WAHA (WhatsApp HTTP API): envía mensajes desde TU WhatsApp Business ya vinculado.
+// Docs: https://waha.devlike.pro  ·  WAHA corre en su propio contenedor (ver docker-compose.yml).
 const cfg = require('./config');
 
-const isConfigured = () => cfg.wa.enabled && Boolean(cfg.wa.token && cfg.wa.phoneNumberId);
+const isConfigured = () => cfg.waha.enabled && Boolean(cfg.waha.url);
 
-/**
- * Envía una plantilla con variables de texto en el cuerpo ({{1}}, {{2}}, ...).
- * Devuelve el id del mensaje de WhatsApp. Lanza error si Meta responde mal.
- */
-async function sendTemplate({ to, template, params = [], lang = cfg.wa.lang }) {
-  const { token, phoneNumberId, apiVersion } = cfg.wa;
-  const res = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
+const headers = () => ({
+  'Content-Type': 'application/json',
+  ...(cfg.waha.apiKey ? { 'X-Api-Key': cfg.waha.apiKey } : {}),
+});
+
+/** Celular colombiano -> id de chat de WhatsApp: "300 123 4567" -> "573001234567@c.us" */
+function toChatId(phone) {
+  let d = String(phone || '').replace(/\D/g, '');
+  if (/^3\d{9}$/.test(d)) d = '57' + d; // todos los números son de Colombia (+57)
+  if (d.length < 8) throw new Error(`Celular no válido: "${phone}"`);
+  return `${d}@c.us`;
+}
+
+/** Envía un mensaje de texto. Lanza error si WAHA no responde o no tiene WhatsApp vinculado. */
+async function sendText(phone, text) {
+  const res = await fetch(`${cfg.waha.url}/api/sendText`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'template',
-      template: {
-        name: template,
-        language: { code: lang },
-        components: params.length
-          ? [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text: String(text) })) }]
-          : [],
-      },
-    }),
-    signal: AbortSignal.timeout(10000),
+    headers: headers(),
+    body: JSON.stringify({ session: cfg.waha.session, chatId: toChatId(phone), text }),
+    signal: AbortSignal.timeout(20000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = (data.error && data.error.message) || `HTTP ${res.status}`;
-    throw new Error(`WhatsApp ${res.status}: ${msg}`);
+    const msg = data.message || data.error || `HTTP ${res.status}`;
+    throw new Error(`WAHA ${res.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
   }
-  return data.messages && data.messages[0] && data.messages[0].id;
+  return data.id && (data.id._serialized || data.id);
 }
 
-module.exports = { isConfigured, sendTemplate };
+/** Estado de la sesión: WORKING (listo), SCAN_QR_CODE (falta vincular), STOPPED, FAILED... o null si WAHA no responde. */
+async function status() {
+  try {
+    const res = await fetch(`${cfg.waha.url}/api/sessions/${encodeURIComponent(cfg.waha.session)}`, {
+      headers: headers(), signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()).status || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+module.exports = { isConfigured, sendText, status, toChatId };

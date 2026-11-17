@@ -1,0 +1,9 @@
+# Saltos de línea: los archivos que corren en Linux (VPS / Docker) siempre con LF.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+Caddyfile text eol=lf
+*.template text eol=lf
+*.png binary
+*.jpg binary

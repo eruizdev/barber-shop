@@ -39,10 +39,10 @@ function assertBookableDate(date) {
   }
 }
 
-function slotsFor(date, appt) {
+async function slotsFor(date, appt) {
   return S.computeSlots(date, {
-    busyTimes: repo.busyFor(date, appt.id), // su propia hora no cuenta como ocupada
-    blocks: repo.blocksFor(date),
+    busyTimes: await repo.busyFor(date, appt.id), // su propia hora no cuenta como ocupada
+    blocks: await repo.blocksFor(date),
     minLeadMin: cfg.minLeadMin,
     need: appt.slots || 1,
   });
@@ -61,26 +61,29 @@ function citaRoutes() {
   });
   router.use((req, res, next) => { res.set('X-Robots-Tag', 'noindex, nofollow'); next(); });
 
-  router.param('token', (req, res, next, token) => {
-    const appt = repo.getAppointmentByToken(token);
-    if (!appt) return next(new CitaError(404, 'No encontramos esta cita. Revisa el link.'));
-    req.appt = appt;
-    next();
+  router.param('token', async (req, res, next, token) => {
+    try {
+      const appt = await repo.getAppointmentByToken(token);
+      if (!appt) return next(new CitaError(404, 'No encontramos esta cita. Revisa el link.'));
+      req.appt = appt;
+      next();
+    } catch (e) { next(e); }
   });
 
   router.get('/:token', (req, res) => res.json({ appointment: publicView(req.appt) }));
 
-  router.get('/:token/slots', (req, res, next) => {
+  router.get('/:token/slots', async (req, res, next) => {
     try {
       const date = String(req.query.date || '');
       assertBookableDate(date);
       const current = req.appt.date === date ? req.appt.time : null;
-      res.json({ date, current, slots: slotsFor(date, req.appt) });
+      res.json({ date, current, slots: await slotsFor(date, req.appt) });
     } catch (e) { next(e); }
   });
 
-  const reschedule = repo.db.transaction((appt, date, time) => {
-    const slot = slotsFor(date, appt).find((s) => s.time === time);
+  const reschedule = (appt, date, time) => repo.tx(async () => {
+    await repo.lockDay(date); // dos personas no pueden tomar la misma hora a la vez
+    const slot = (await slotsFor(date, appt)).find((s) => s.time === time);
     if (!slot) throw new CitaError(400, 'Esa hora no hace parte del horario');
     if (!slot.available) throw new CitaError(409, 'Esa hora ya no está disponible. Elige otra.');
     return repo.updateAppointment(appt.id, { date, time, resetReminder: true });
@@ -97,21 +100,21 @@ function citaRoutes() {
 
       let after;
       try {
-        after = reschedule(before, date, time);
+        after = await reschedule(before, date, time);
       } catch (e) {
-        if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') throw new CitaError(409, 'Esa hora ya no está disponible. Elige otra.');
+        if (e && e.code === '23505') throw new CitaError(409, 'Esa hora ya no está disponible. Elige otra.');
         throw e;
       }
-      const whatsappSent = await notify.sendConfirmation(after, req);
+      const whatsappSent = await notify.sendConfirmation(after, req, { changed: true });
       res.json({ appointment: publicView(after), whatsappSent });
     } catch (e) { next(e); }
   });
 
-  router.post('/:token/cancel', writeLimiter, (req, res, next) => {
+  router.post('/:token/cancel', writeLimiter, async (req, res, next) => {
     try {
       const appt = req.appt;
       if (!canModify(appt)) throw new CitaError(409, 'Esta cita ya no se puede cancelar. Escríbenos por WhatsApp.');
-      const after = repo.updateAppointment(appt.id, { status: 'cancelled' });
+      const after = await repo.updateAppointment(appt.id, { status: 'cancelled' });
       res.json({ appointment: publicView(after) });
     } catch (e) { next(e); }
   });

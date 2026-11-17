@@ -27,6 +27,8 @@ module.exports = {
   openTime: process.env.BOOKING_OPEN_TIME || '08:00',
   minLeadMin: num(process.env.MIN_LEAD_MINUTES, 60),
   maxActivePerPhone: num(process.env.MAX_ACTIVE_PER_PHONE, 2),
+  // Reservas por hora que puede hacer una misma conexión (anti-abuso)
+  bookLimitPerHour: num(process.env.BOOK_LIMIT_PER_HOUR, 12),
   // Días que se guarda una cita después de su fecha; luego se borra sola.
   historyDays: Math.max(0, num(process.env.HISTORY_DAYS, 3)),
   cookieSecure: process.env.COOKIE_SECURE === 'true',
@@ -34,16 +36,21 @@ module.exports = {
   sessionSecret,
   // URL pública del sitio, para los links que se envían por WhatsApp. Ej: https://sebasbarber.com
   publicUrl: (process.env.PUBLIC_URL || '').replace(/\/+$/, ''),
-  dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'sebasbarber.db'),
-  wa: {
+  // PostgreSQL. Ej: postgres://usuario:clave@localhost:5432/sebasbarber
+  databaseUrl: process.env.DATABASE_URL || '',
+  dbPoolMax: Math.max(1, num(process.env.DB_POOL_MAX, 10)),
+  // WAHA: envía mensajes desde tu WhatsApp Business (confirmación al reservar y recordatorio)
+  waha: {
     enabled: process.env.WHATSAPP_ENABLED === 'true',
-    token: process.env.WHATSAPP_TOKEN || '',
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-    template: process.env.WHATSAPP_TEMPLATE || 'recordatorio_cita',
-    // Plantilla que se envía al reservar o reprogramar, con el link de la cita.
-    confirmTemplate: process.env.WHATSAPP_CONFIRM_TEMPLATE || 'confirmacion_cita',
-    lang: process.env.WHATSAPP_LANG || 'es',
-    hoursBefore: num(process.env.REMINDER_HOURS_BEFORE, 24),
-    apiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
+    url: (process.env.WAHA_URL || 'http://waha:3000').replace(/\/+$/, ''),
+    session: process.env.WAHA_SESSION || 'default',
+    apiKey: process.env.WAHA_API_KEY || '',
+    // Minutos antes de la cita en que se manda el recordatorio
+    reminderMinutes: num(process.env.REMINDER_MINUTES_BEFORE, 60),
+    // No mandar recordatorio si la cita se agendó (o cambió) con menos de estos minutos de anticipación
+    // (el cliente acaba de recibir la confirmación). 0 = mandarlo siempre.
+    skipIfBookedWithinMin: num(process.env.REMINDER_SKIP_IF_BOOKED_WITHIN_MIN, 90),
+    // Pausa (aprox.) entre un mensaje y otro cuando hay varios, para no parecer un robot
+    pauseMs: num(process.env.REMINDER_PAUSE_MS, 2500),
   },
 };

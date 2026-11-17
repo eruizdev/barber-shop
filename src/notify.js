@@ -1,19 +1,10 @@
 'use strict';
-// Confirmación por WhatsApp con el link privado de la cita.
-//
-// Plantilla en WhatsApp Manager (categoría UTILITY, idioma es), nombre
-// WHATSAPP_CONFIRM_TEMPLATE (por defecto "confirmacion_cita"):
-//
-//   Hola {{1}}, tu cita en Sebas Barber quedó confirmada para el {{2}} a las {{3}}.
-//
-//   Desde este link puedes ver, cambiar o cancelar tu cita: {{4}}
-//
-//   ¡Te esperamos!
-//
-// (Meta no acepta plantillas que empiecen o terminen con una variable.)
+// Mensajes por WhatsApp (vía WAHA, desde tu WhatsApp Business).
 const cfg = require('./config');
 const wa = require('./whatsapp');
 const { formatDateEs, format12 } = require('./schedule');
+
+const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || '';
 
 /** URL base del sitio: PUBLIC_URL o, si no está, la del request. */
 function baseUrl(req) {
@@ -21,20 +12,43 @@ function baseUrl(req) {
   return req ? `${req.protocol}://${req.get('host')}` : '';
 }
 
-const manageUrl = (appt, req) => `${baseUrl(req)}/cita/${appt.manage_token}`;
+/** Link privado de la cita ('' si no se sabe la dirección pública del sitio). */
+function manageUrl(appt, req) {
+  const base = baseUrl(req);
+  return base ? `${base}/cita/${appt.manage_token}` : '';
+}
+
+const confirmationText = (appt, link, changed) => [
+  `Hola ${firstName(appt.name)} 👋`,
+  changed ? 'Tu cita en Sebas Barber fue cambiada:' : 'Tu cita en Sebas Barber quedó confirmada:',
+  `📅 ${formatDateEs(appt.date)} a las ${format12(appt.time)}`,
+  appt.service ? `✂️ ${appt.service}` : '',
+  link ? `\nDesde este link puedes ver, cambiar o cancelar tu cita:\n${link}` : '',
+  '\n¡Te esperamos!',
+].filter((l) => l !== '').join('\n');
+
+const reminderText = (appt, link) => [
+  `Hola ${firstName(appt.name)} 👋`,
+  `Te recordamos tu cita de hoy en Sebas Barber a las ${format12(appt.time)}.`,
+  appt.service ? `✂️ ${appt.service}` : '',
+  link ? `\nSi no puedes asistir, cámbiala o cancélala aquí:\n${link}` : '',
+  '\n¡Te esperamos!',
+].filter((l) => l !== '').join('\n');
+
+const fixedReminderText = (fixed) => [
+  `Hola ${firstName(fixed.name)} 👋`,
+  `Te recordamos tu turno de hoy en Sebas Barber a las ${format12(fixed.time)}.`,
+  '\n¡Te esperamos!',
+].join('\n');
 
 /**
- * Envía la confirmación (al reservar o al reprogramar).
+ * Confirmación al reservar (o al reprogramar, con changed: true).
  * Nunca lanza: devuelve true si WhatsApp la aceptó.
  */
-async function sendConfirmation(appt, req) {
+async function sendConfirmation(appt, req, { changed = false } = {}) {
   if (!wa.isConfigured()) return false;
   try {
-    await wa.sendTemplate({
-      to: appt.phone,
-      template: cfg.wa.confirmTemplate,
-      params: [appt.name.split(' ')[0], formatDateEs(appt.date), format12(appt.time), manageUrl(appt, req)],
-    });
+    await wa.sendText(appt.phone, confirmationText(appt, manageUrl(appt, req), changed));
     return true;
   } catch (err) {
     console.error('[whatsapp confirmación]', err.message);
@@ -42,4 +56,4 @@ async function sendConfirmation(appt, req) {
   }
 }
 
-module.exports = { manageUrl, sendConfirmation };
+module.exports = { manageUrl, sendConfirmation, reminderText, fixedReminderText };

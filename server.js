@@ -72,6 +72,11 @@ function createApp() {
   app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   app.use('/api/admin', (req, res, next) => { res.set('X-Robots-Tag', 'noindex, nofollow'); next(); });
 
+  // Para Docker / monitoreo: responde 200 si el servidor y la base de datos están bien
+  app.get('/healthz', async (req, res) => {
+    try { await repo.ping(); res.type('text/plain').send('ok'); } catch (e) { res.status(503).type('text/plain').send('db'); }
+  });
+
   // ---------- API pública ----------
   app.get('/api/config', (req, res) => {
     res.json({
@@ -83,26 +88,28 @@ function createApp() {
   // Horas que necesita la reserva: ?service=<id> o ?slots=2 (página de la cita)
   const needFrom = (q) => (q.service ? services.slotsFor(String(q.service)) : (Number(q.slots) === 2 ? 2 : 1));
 
-  app.get('/api/calendar', (req, res) => {
+  app.get('/api/calendar', async (req, res, next) => {
+    try {
     const need = needFrom(req.query);
     const now = S.nowParts();
     const w = S.bookingWindow(now.date, cfg.anchor, now.minutes, cfg.openTime);
-    const days = [];
-    for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) {
+    const dates = [];
+    for (let d = w.firstBookable; d <= w.end; d = S.addDays(d, 1)) dates.push(d);
+    const days = await Promise.all(dates.map(async (d) => {
       const info = S.dayInfo(d);
-      const slots = S.computeSlots(d, {
-        busyTimes: repo.busyFor(d), blocks: repo.blocksFor(d), minLeadMin: cfg.minLeadMin, need,
-      });
-      days.push({
+      const [busyTimes, blocks] = await Promise.all([repo.busyFor(d), repo.blocksFor(d)]);
+      const slots = S.computeSlots(d, { busyTimes, blocks, minLeadMin: cfg.minLeadMin, need });
+      return {
         date: d, dow: info.dow, open: info.open, holiday: info.holiday,
         total: slots.length, free: slots.filter((s) => s.available).length,
-      });
-    }
+      };
+    }));
     res.json({
       today: now.date,
       window: { start: w.start, end: w.end, nextUnlock: w.nextUnlock, nextUnlockTime: S.format12(w.nextUnlockTime) },
       days,
     });
+    } catch (e) { next(e); }
   });
 
   function assertInWindow(date) {
@@ -114,13 +121,13 @@ function createApp() {
     }
   }
 
-  app.get('/api/slots', (req, res, next) => {
+  app.get('/api/slots', async (req, res, next) => {
     try {
       const date = String(req.query.date || '');
       assertInWindow(date);
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.busyFor(date), blocks: repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
+        busyTimes: await repo.busyFor(date), blocks: await repo.blocksFor(date), minLeadMin: cfg.minLeadMin,
         need: needFrom(req.query),
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
@@ -128,19 +135,21 @@ function createApp() {
   });
 
   const bookLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, limit: 12, standardHeaders: true, legacyHeaders: false,
+    windowMs: 60 * 60 * 1000, limit: cfg.bookLimitPerHour, standardHeaders: true, legacyHeaders: false,
     message: { error: 'Demasiados intentos. Intenta más tarde.' },
   });
 
-  const book = repo.db.transaction((data) => {
+  // Transacción con bloqueo del día: si dos personas reservan la misma hora a la vez, solo una gana.
+  const book = (data) => repo.tx(async () => {
+    await repo.lockDay(data.date);
     const slot = S.computeSlots(data.date, {
-      busyTimes: repo.busyFor(data.date), blocks: repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
+      busyTimes: await repo.busyFor(data.date), blocks: await repo.blocksFor(data.date), minLeadMin: cfg.minLeadMin,
       need: data.slots,
     }).find((s) => s.time === data.time);
     if (!slot) throw bad('Esa hora no hace parte del horario');
     if (slot.reason === 'short') throw new HttpError(409, 'Este servicio dura 2 horas y no alcanza a esa hora. Elige otra.');
     if (!slot.available) throw new HttpError(409, 'Esa hora ya no está disponible. Elige otra.');
-    if (repo.countFuturePhone(data.phone, S.nowParts().date) >= cfg.maxActivePerPhone) {
+    if ((await repo.countFuturePhone(data.phone, S.nowParts().date)) >= cfg.maxActivePerPhone) {
       throw new HttpError(409, `Ya tienes ${cfg.maxActivePerPhone} citas activas con este número.`);
     }
     return repo.insertAppointment({ ...data, source: 'web' });
@@ -157,7 +166,7 @@ function createApp() {
       if (!service) throw bad('Elige el tipo de servicio');
       if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
       assertInWindow(b.date);
-      const appt = book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
+      const appt = await book({ name, phone, service, slots: services.slotsFor(b.service), date: b.date, time: b.time });
       // Confirmación por WhatsApp con el link para ver, cambiar o cancelar la cita
       const whatsappSent = await notify.sendConfirmation(appt, req);
       res.status(201).json({
@@ -165,7 +174,7 @@ function createApp() {
         manageUrl: notify.manageUrl(appt, req), whatsappSent,
       });
     } catch (e) {
-      if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (e && e.code === '23505') { // choque con el índice único de la base de datos
         return next(new HttpError(409, 'Esa hora ya no está disponible. Elige otra.'));
       }
       next(e);
@@ -194,13 +203,13 @@ function createApp() {
 
   admin.get('/me', (req, res) => res.json({ user: req.admin, today: S.nowParts().date }));
 
-  admin.get('/appointments', (req, res, next) => {
+  admin.get('/appointments', async (req, res, next) => {
     try {
       const { from, to, status, q } = req.query;
       if (from && !S.isDateStr(from)) throw bad('Fecha "desde" no válida');
       if (to && !S.isDateStr(to)) throw bad('Fecha "hasta" no válida');
       res.json({
-        appointments: repo.listAppointments({
+        appointments: await repo.listAppointments({
           from, to, status: status || 'all', q: cleanText(q, 60),
         }),
       });
@@ -208,15 +217,15 @@ function createApp() {
   });
 
   // Horas estándar de un día (para sugerir al reprogramar). No aplica ventana de 2 semanas.
-  admin.get('/slots', (req, res, next) => {
+  admin.get('/slots', async (req, res, next) => {
     try {
       const date = String(req.query.date || '');
       if (!S.isDateStr(date)) throw bad('Fecha no válida');
       const ex = Number(req.query.exclude) || 0;
-      const editing = ex ? repo.getAppointment(ex) : null;
+      const editing = ex ? await repo.getAppointment(ex) : null;
       const info = S.dayInfo(date);
       const slots = S.computeSlots(date, {
-        busyTimes: repo.busyFor(date, ex), blocks: repo.blocksFor(date), minLeadMin: -100000000,
+        busyTimes: await repo.busyFor(date, ex), blocks: await repo.blocksFor(date), minLeadMin: -100000000,
         need: editing ? editing.slots : 1,
       });
       res.json({ date, open: info.open, holiday: info.holiday, slots });
@@ -249,57 +258,60 @@ function createApp() {
     return out;
   }
 
-  admin.post('/appointments', (req, res, next) => {
+  admin.post('/appointments', async (req, res, next) => {
     try {
       const f = readApptFields(req.body || {}, { partial: false });
-      const create = repo.db.transaction(() => {
-        if (repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
+      const appt = await repo.tx(async () => {
+        await repo.lockDay(f.date);
+        if (await repo.hasConflict(f.date, f.time)) throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
         return repo.insertAppointment({ ...f, status: 'confirmed', source: 'admin' });
       });
-      const appt = create();
       res.status(201).json({ appointment: appt });
-    } catch (e) { next(e); }
-  });
-
-  admin.patch('/appointments/:id', (req, res, next) => {
-    try {
-      const id = Number(req.params.id);
-      const f = readApptFields(req.body || {}, { partial: true });
-      const run = repo.db.transaction(() => {
-        const before = repo.getAppointment(id);
-        if (!before) throw new HttpError(404, 'Cita no encontrada');
-        const next = { ...before, ...f };
-        const becomesActive = next.status !== 'cancelled';
-        const moved = next.date !== before.date || next.time !== before.time;
-        const reactivated = before.status === 'cancelled' && becomesActive;
-        if (becomesActive && (moved || reactivated) && repo.hasConflict(next.date, next.time, id, before.slots)) {
-          throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
-        }
-        const after = repo.updateAppointment(id, { ...f, resetReminder: moved });
-        return { before, after, moved };
-      });
-      const { after } = run();
-      res.json({ appointment: after });
     } catch (e) {
-      if (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE') return next(new HttpError(409, 'Ya hay una cita en ese horario'));
+      if (e && e.code === '23505') return next(new HttpError(409, 'Ya hay una cita en ese horario'));
       next(e);
     }
   });
 
-  admin.delete('/appointments/:id', (req, res, next) => {
+  admin.patch('/appointments/:id', async (req, res, next) => {
     try {
-      const a = repo.getAppointment(Number(req.params.id));
+      const id = Number(req.params.id);
+      const f = readApptFields(req.body || {}, { partial: true });
+      const { after } = await repo.tx(async () => {
+        const before = await repo.getAppointment(id);
+        if (!before) throw new HttpError(404, 'Cita no encontrada');
+        const target = { ...before, ...f };
+        await repo.lockDay(target.date);
+        const becomesActive = target.status !== 'cancelled';
+        const moved = target.date !== before.date || target.time !== before.time;
+        const reactivated = before.status === 'cancelled' && becomesActive;
+        if (becomesActive && (moved || reactivated) && await repo.hasConflict(target.date, target.time, id, before.slots)) {
+          throw new HttpError(409, 'Ya hay una cita o un turno fijo en ese horario');
+        }
+        const updated = await repo.updateAppointment(id, { ...f, resetReminder: moved });
+        return { before, after: updated, moved };
+      });
+      res.json({ appointment: after });
+    } catch (e) {
+      if (e && e.code === '23505') return next(new HttpError(409, 'Ya hay una cita en ese horario'));
+      next(e);
+    }
+  });
+
+  admin.delete('/appointments/:id', async (req, res, next) => {
+    try {
+      const a = await repo.getAppointment(Number(req.params.id));
       if (!a) throw new HttpError(404, 'Cita no encontrada');
-      repo.deleteAppointment(a.id);
+      await repo.deleteAppointment(a.id);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
 
-  admin.get('/blocks', (req, res) => {
-    res.json({ blocks: repo.listBlocks(S.nowParts().date) });
+  admin.get('/blocks', async (req, res, next) => {
+    try { res.json({ blocks: await repo.listBlocks(S.nowParts().date) }); } catch (e) { next(e); }
   });
 
-  admin.post('/blocks', (req, res, next) => {
+  admin.post('/blocks', async (req, res, next) => {
     try {
       const b = req.body || {};
       if (!S.isDateStr(b.date)) throw bad('Fecha no válida');
@@ -308,16 +320,16 @@ function createApp() {
         if (!S.isTimeStr(b.time)) throw bad('Hora no válida');
         time = b.time;
       }
-      const blk = repo.addBlock(b.date, time, cleanText(b.reason, 80));
+      const blk = await repo.addBlock(b.date, time, cleanText(b.reason, 80));
       res.status(201).json({ block: blk });
     } catch (e) { next(e); }
   });
 
-  admin.delete('/blocks/:id', (req, res, next) => {
+  admin.delete('/blocks/:id', async (req, res, next) => {
     try {
-      const blk = repo.getBlock(Number(req.params.id));
+      const blk = await repo.getBlock(Number(req.params.id));
       if (!blk) throw new HttpError(404, 'Bloqueo no encontrado');
-      repo.deleteBlock(blk.id);
+      await repo.deleteBlock(blk.id);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
@@ -340,72 +352,75 @@ function createApp() {
     return { dow, time: b.time, name, phone, every, start_date: b.start_date };
   }
 
-  admin.get('/fixed', (req, res) => res.json({ fixed: repo.listFixed() }));
-
-  admin.post('/fixed', (req, res, next) => {
-    try { res.status(201).json({ fixed: repo.addFixed(readFixed(req.body || {})) }); } catch (e) { next(e); }
+  admin.get('/fixed', async (req, res, next) => {
+    try { res.json({ fixed: await repo.listFixed() }); } catch (e) { next(e); }
   });
 
-  admin.patch('/fixed/:id', (req, res, next) => {
+  admin.post('/fixed', async (req, res, next) => {
+    try { res.status(201).json({ fixed: await repo.addFixed(readFixed(req.body || {})) }); } catch (e) { next(e); }
+  });
+
+  admin.patch('/fixed/:id', async (req, res, next) => {
     try {
       const id = Number(req.params.id);
-      if (!repo.getFixed(id)) throw new HttpError(404, 'Turno fijo no encontrado');
-      res.json({ fixed: repo.updateFixed(id, readFixed(req.body || {})) });
+      if (!await repo.getFixed(id)) throw new HttpError(404, 'Turno fijo no encontrado');
+      res.json({ fixed: await repo.updateFixed(id, readFixed(req.body || {})) });
     } catch (e) { next(e); }
   });
 
-  admin.delete('/fixed/:id', (req, res, next) => {
+  admin.delete('/fixed/:id', async (req, res, next) => {
     try {
-      if (!repo.deleteFixed(Number(req.params.id))) throw new HttpError(404, 'Turno fijo no encontrado');
+      if (!await repo.deleteFixed(Number(req.params.id))) throw new HttpError(404, 'Turno fijo no encontrado');
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
 
   // Liberar (PUT) o volver a bloquear (DELETE) un turno fijo solo en una fecha
-  admin.put('/fixed/:id/skips/:date', (req, res, next) => {
+  admin.put('/fixed/:id/skips/:date', async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       const { date } = req.params;
       if (!S.isDateStr(date)) throw bad('Fecha no válida');
-      if (!repo.fixedFor(date, { includeSkipped: true }).some((f) => f.id === id)) {
+      if (!(await repo.fixedFor(date, { includeSkipped: true })).some((f) => f.id === id)) {
         throw bad('Ese turno fijo no toca en esa fecha');
       }
-      repo.skipFixed(id, date);
+      await repo.skipFixed(id, date);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
-  admin.delete('/fixed/:id/skips/:date', (req, res, next) => {
+  admin.delete('/fixed/:id/skips/:date', async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       const { date } = req.params;
       if (!S.isDateStr(date)) throw bad('Fecha no válida');
-      const f = repo.fixedFor(date, { includeSkipped: true }).find((x) => x.id === id);
+      const f = (await repo.fixedFor(date, { includeSkipped: true })).find((x) => x.id === id);
       if (!f) throw bad('Ese turno fijo no toca en esa fecha');
-      if (f.skipped && repo.hasConflict(date, f.time)) {
+      if (f.skipped && await repo.hasConflict(date, f.time)) {
         throw new HttpError(409, 'Esa hora ya la tomó otra persona; cancela esa cita primero');
       }
-      repo.unskipFixed(id, date);
+      await repo.unskipFixed(id, date);
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
 
   // Calendario del admin: por cada día, horario, citas activas y turnos fijos (con nombres)
-  admin.get('/agenda', (req, res, next) => {
+  admin.get('/agenda', async (req, res, next) => {
     try {
       const { from, to } = req.query;
       if (!S.isDateStr(from) || !S.isDateStr(to) || to < from || S.daysBetween(from, to) > 31) {
         throw bad('Rango de fechas no válido');
       }
-      const appts = repo.listAppointments({ from, to, status: 'active' });
-      const days = [];
-      for (let d = from; d <= to; d = S.addDays(d, 1)) {
+      const appts = await repo.listAppointments({ from, to, status: 'active' });
+      const dates = [];
+      for (let d = from; d <= to; d = S.addDays(d, 1)) dates.push(d);
+      const days = await Promise.all(dates.map(async (d) => {
         const info = S.dayInfo(d);
-        days.push({
+        return {
           date: d, dow: info.dow, open: info.open, holiday: info.holiday, ranges: info.ranges,
           appointments: appts.filter((a) => a.date === d),
-          fixed: repo.fixedFor(d, { includeSkipped: true }),
-        });
-      }
+          fixed: await repo.fixedFor(d, { includeSkipped: true }),
+        };
+      }));
       res.json({ days });
     } catch (e) { next(e); }
   });
@@ -457,10 +472,20 @@ function createApp() {
 module.exports = { createApp };
 
 if (require.main === module) {
-  createApp().listen(cfg.port, () => {
-    console.log(`${cfg.name} escuchando en http://localhost:${cfg.port}`);
-    console.log(`Panel admin: http://localhost:${cfg.port}/admin`);
-    reminders.start();
-    cleanup.start();
-  });
+  (async () => {
+    await repo.init(); // conecta a Postgres y crea las tablas si faltan
+    const server = createApp().listen(cfg.port, () => {
+      console.log(`${cfg.name} escuchando en el puerto ${cfg.port}`);
+      reminders.start();
+      cleanup.start();
+    });
+    // Apagado ordenado (docker stop / reinicio): termina lo que está en curso y cierra la base de datos
+    const shutdown = (sig) => {
+      console.log(`[${sig}] cerrando...`);
+      server.close(() => repo.close().finally(() => process.exit(0)));
+      setTimeout(() => process.exit(1), 10000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  })().catch((e) => { console.error('No se pudo arrancar:', e.message); process.exit(1); });
 }
