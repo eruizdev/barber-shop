@@ -203,10 +203,8 @@
       },
     }, 'Copiar link');
     return [
-      h('strong', {}, '⚠️ Importante: guarda este link'),
-      h('p', {}, r.whatsappSent
-        ? 'También te llegó por WhatsApp: no borres ese mensaje. Es la única forma de ver, cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos por WhatsApp.'
-        : 'Es la única forma de ver, cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos por WhatsApp. Cópialo o tómale captura de pantalla.'),
+      h('strong', {}, 'Importante: guarda este link'),
+      h('p', {}, 'Es la única forma de ver, cambiar o cancelar tu cita; si lo pierdes, tendrás que escribirnos por WhatsApp. Cópialo o tómale captura de pantalla.'),
       r.code ? h('p', {}, 'Código de tu cita: ', h('b', {}, r.code)) : null,
       h('a', { class: 'keep-link', href: r.manageUrl }, r.manageUrl),
       copyBtn,
@@ -217,15 +215,10 @@
     $('flow').hidden = true;
     $('notice').hidden = true;
     $('doneWhen').textContent = `${longDate(r.date)} a las ${time12(r.time)}`;
-    if (r.whatsappSent) {
-      $('doneMsg').replaceChildren(
-        'Te enviamos la confirmación a tu WhatsApp ', h('b', {}, SB.phonePretty(r.phone)),
-        ' con el link para ver, cambiar o cancelar tu cita.'
-      );
-    } else {
-      // Sin WhatsApp (no configurado o falló): el link solo queda en esta pantalla
-      $('doneMsg').textContent = 'No pudimos enviarte el WhatsApp de confirmación. Guarda el link de abajo.';
-    }
+    $('doneMsg').replaceChildren(
+      '1 hora antes de tu cita te la recordaremos automáticamente por WhatsApp al número ',
+      h('b', {}, SB.phonePretty(r.phone)), '.'
+    );
     if (r.manageUrl) {
       $('doneActions').prepend(h('a', { class: 'btn', href: r.manageUrl }, 'Ver mi cita'));
       $('doneKeep').replaceChildren(...keepBox(r));

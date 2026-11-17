@@ -207,11 +207,11 @@
 .success .code { display: inline-block; font-family: var(--font-head); font-size: 34px; letter-spacing: 0.3em; border: 1px dashed var(--gold); padding: 8px 22px; margin: 18px 0; color: var(--gold); }
 .success p { color: var(--muted); max-width: 46ch; margin: 0 auto 8px; }
 .success .when { color: var(--text); font-size: 20px; }
-.success .keep { max-width: 520px; margin: 22px auto 0; text-align: left; border: 1px solid var(--gold-dark); border-left: 3px solid var(--gold); background: #2d2716; padding: 16px 18px; }
-.success .keep strong { display: block; color: var(--gold); font-size: 17px; margin-bottom: 6px; }
+.success .keep { max-width: 520px; margin: 22px auto 0; text-align: left; border: 1px solid #5e2a24; border-left: 3px solid #a8443a; background: #2a1d1b; padding: 16px 18px; }
+.success .keep strong { display: block; color: #d0675a; font-size: 17px; margin-bottom: 6px; }
 .success .keep p { color: var(--text); max-width: none; margin: 0 0 8px; font-size: 15px; }
-.success .keep b { color: var(--gold); letter-spacing: 0.08em; }
-.success .keep .keep-link { display: block; word-break: break-all; color: var(--gold); font-size: 14px; margin: 4px 0 12px; }
+.success .keep b { color: #d0675a; letter-spacing: 0.08em; }
+.success .keep .keep-link { display: block; word-break: break-all; color: #d0675a; font-size: 14px; margin: 4px 0 12px; }
 .success .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
 /* Mi cita (/cita/<token>) */
