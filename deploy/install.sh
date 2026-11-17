@@ -25,7 +25,7 @@ if [ -f .env ]; then
 else
   say "Configuración inicial"
   read -r -p "Tu dominio, ya apuntando a la IP de este servidor (ej. sebasbarber.com): " DOMAIN
-  DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"
+  DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"; DOMAIN="${DOMAIN#www.}"  # sin www: la web www redirige sola
   [ -n "$DOMAIN" ] || { echo "El dominio es obligatorio (HTTPS lo necesita)." >&2; exit 1; }
   read -r -p "WhatsApp del negocio, con 57 (ej. 573001234567) [Enter para omitir]: " BIZ || BIZ=""
   A1="$(rand 9)"; A2="$(rand 9)"

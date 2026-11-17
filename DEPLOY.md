@@ -16,11 +16,28 @@ Todo corre en tu servidor con **un solo comando**: la app, la base de datos Post
 | | |
 |---|---|
 | **VPS** | Ubuntu 22.04 o 24.04, **2 GB de RAM** recomendado (1 GB alcanza justo), 1 CPU, 10 GB de disco. |
-| **Dominio** | Uno que ya apunte a la IP del VPS: un registro **A** `tudominio.com → IP-del-VPS`. Sin dominio no hay HTTPS. |
+| **Dominio** | Uno que ya apunte a la IP del VPS (registros **A** de `@` y `www`; paso a paso abajo). Sin dominio no hay HTTPS. |
 | **Puertos** | 80 y 443 abiertos al público (el 22 es el de SSH). |
 | **Celular** | Con tu **WhatsApp Business** (el que enviará los mensajes) para escanear un QR una sola vez. |
 
-Si tu dominio está en Cloudflare, deja el registro en **"Solo DNS" (nube gris)** al principio. Cuando todo funcione puedes activar la nube naranja, con el modo SSL en **Full (strict)**.
+### Apuntar el dominio al VPS (Namecheap)
+
+1. Averigua la **IP pública del VPS**: está en el panel de tu proveedor, o desde el servidor con `curl ifconfig.me`.
+2. En Namecheap: **Domain List → Manage** (tu dominio) **→ Advanced DNS**.
+3. En *Host Records* **borra** los dos registros que trae de fábrica (ícono de papelera): `CNAME www → parkingpage.namecheap.com` y `URL Redirect @`. Si quedan, el dominio sigue mostrando la página de Namecheap.
+4. **ADD NEW RECORD** y crea estos dos, con *TTL* en *Automatic*:
+
+   | Type | Host | Value |
+   |---|---|---|
+   | **A Record** | `@` | la IP del VPS |
+   | **A Record** | `www` | la IP del VPS |
+
+5. Guarda con el ✔ verde de cada fila. **No toques** el registro TXT de *Mail Settings* (`v=spf1 ...`): es del correo.
+6. Espera de 5 a 30 minutos y comprueba que ya apunta al servidor: `nslookup sebas-barber.com` debe mostrar la IP del VPS (o mira en dnschecker.org).
+
+Cuando el instalador te pida el dominio, escribe `sebas-barber.com` **sin www**: `www.sebas-barber.com` redirige solo.
+
+Si algún día pasas el dominio por Cloudflare, deja el registro en **"Solo DNS" (nube gris)** al principio; con la nube naranja usa el modo SSL **Full (strict)**.
 
 ## 2. Subir el proyecto al servidor
 
